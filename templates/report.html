@@ -1,12 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="container mx-auto px-4 py-8">
-    <div class="flex justify-between items-center mb-8">
-        <h1 class="text-3xl font-bold">Relatório de Demandas</h1>
-        <a href="{{ url_for('form') }}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-            Nova Demanda
-        </a>
-    </div>
+    <h1 class="text-3xl font-bold mb-8">Relatório de Demandas</h1>
 
     {% with messages = get_flashed_messages() %}
         {% if messages %}
@@ -18,64 +13,45 @@
         {% endif %}
     {% endwith %}
 
-    {% if registros %}
-        <div class="overflow-x-auto">
-            <table class="min-w-full bg-white border border-gray-300 shadow-sm rounded-lg">
-                <thead>
-                    <tr class="bg-gray-100">
-                        <th class="px-6 py-3 border-b border-gray-300 text-left text-xs leading-4 font-medium text-gray-500 uppercase tracking-wider">Data</th>
-                        <th class="px-6 py-3 border-b border-gray-300 text-left text-xs leading-4 font-medium text-gray-500 uppercase tracking-wider">Demanda</th>
-                        <th class="px-6 py-3 border-b border-gray-300 text-left text-xs leading-4 font-medium text-gray-500 uppercase tracking-wider">Assunto</th>
-                        <th class="px-6 py-3 border-b border-gray-300 text-left text-xs leading-4 font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th class="px-6 py-3 border-b border-gray-300 text-left text-xs leading-4 font-medium text-gray-500 uppercase tracking-wider">Data de Registro</th>
-                        <th class="px-6 py-3 border-b border-gray-300"></th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white">
-                    {% for registro in registros %}
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-4 whitespace-no-wrap border-b border-gray-300">
-                            {{ registro['data'] }}
-                        </td>
-                        <td class="px-6 py-4 border-b border-gray-300">
-                            {{ registro['demanda'] }}
-                        </td>
-                        <td class="px-6 py-4 border-b border-gray-300">
-                            {{ registro['assunto'] }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-no-wrap border-b border-gray-300">
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                {% if registro['status'] == 'Em andamento' %}
-                                    bg-yellow-100 text-yellow-800
-                                {% elif registro['status'] == 'Concluído' %}
-                                    bg-green-100 text-green-800
-                                {% elif registro['status'] == 'Pendente' %}
-                                    bg-red-100 text-red-800
-                                {% else %}
-                                    bg-gray-100 text-gray-800
-                                {% endif %}">
-                                {{ registro['status'] }}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-no-wrap border-b border-gray-300 text-sm leading-5 text-gray-500">
-                            {{ registro['data_registro'] }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-no-wrap text-right border-b border-gray-300 text-sm leading-5 font-medium">
-                            <form action="{{ url_for('delete', id=registro['id']) }}" method="POST" class="inline" onsubmit="return confirm('Tem certeza que deseja excluir este registro?');">
-                                <button type="submit" class="text-red-600 hover:text-red-900">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    {% else %}
-        <div class="bg-gray-50 p-4 rounded-lg text-center">
-            <p class="text-gray-500">Nenhum registro encontrado.</p>
-        </div>
-    {% endif %}
+    <form method="GET" action="{{ url_for('report') }}" class="mb-4">
+        <input type="text" name="search" placeholder="Pesquisar..." value="{{ search_query }}" class="px-3 py-2 border rounded">
+        <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+            Buscar
+        </button>
+    </form>
+
+    <a href="{{ url_for('export') }}" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mb-4 inline-block">
+        Exportar para CSV
+    </a>
+
+    <table class="min-w-full bg-white border border-gray-300">
+        <thead>
+            <tr>
+                <th class="py-2 px-4 border-b">Data</th>
+                <th class="py-2 px-4 border-b">Demanda</th>
+                <th class="py-2 px-4 border-b">Assunto</th>
+                <th class="py-2 px-4 border-b">Status</th>
+                <th class="py-2 px-4 border-b">Data de Registro</th>
+                <th class="py-2 px-4 border-b">Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for registro in registros %}
+            <tr>
+                <td class="py-2 px-4 border-b">{{ registro['data'] }}</td>
+                <td class="py-2 px-4 border-b">{{ registro['demanda'] }}</td>
+                <td class="py-2 px-4 border-b">{{ registro['assunto'] }}</td>
+                <td class="py-2 px-4 border-b">{{ registro['status'] }}</td>
+                <td class="py-2 px-4 border-b">{{ registro['data_registro'] }}</td>
+                <td class="py-2 px-4 border-b">
+                    <form method="POST" action="{{ url_for('delete', id=registro['id']) }}">
+                        <button type="submit" class="text-red-500">Excluir</button>
+                    </form>
+                    <a href="{{ url_for('edit', id=registro['id']) }}" class="text-blue-500">Editar</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 {% endblock %}
