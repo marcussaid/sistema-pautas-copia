@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold mb-8">Registro de Demandas</h1>
+    
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+                <div class="mb-4 p-4 {% if 'sucesso' in message.lower() %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %} rounded">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('submit') }}" class="max-w-lg" id="demandaForm">
+        <div class="mb-4">
+            <label class="block text-gray-700 font-bold mb-2" for="data">Data</label>
+            <input type="date" id="data" name="data" required class="w-full px-3 py-2 border rounded bg-white" 
+                   value="{{ form_data.get('data', '') }}" max="{{ today }}">
+        </div>
+        <div class="mb-4">
+            <label class="block text-gray-700 font-bold mb-2" for="demanda">Demanda</label>
+            <input type="text" id="demanda" name="demanda" required class="w-full px-3 py-2 border rounded" 
+                   placeholder="Digite a demanda" value="{{ form_data.get('demanda', '') }}">
+        </div>
+        <div class="mb-4">
+            <label class="block text-gray-700 font-bold mb-2" for="assunto">Assunto</label>
+            <input type="text" id="assunto" name="assunto" required class="w-full px-3 py-2 border rounded" 
+                   placeholder="Digite o assunto" value="{{ form_data.get('assunto', '') }}">
+        </div>
+        <div class="mb-4">
+            <label class="block text-gray-700 font-bold mb-2" for="status">Status</label>
+            <select id="status" name="status" required class="w-full px-3 py-2 border rounded bg-white">
+                <option value="Em andamento">Em andamento</option>
+                <option value="Concluído">Concluído</option>
+                <option value="Pendente">Pendente</option>
+                <option value="Cancelado">Cancelado</option>
+            </select>
+        </div>
+        <div class="flex items-center justify-between">
+            <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                Salvar
+            </button>
+            <a href="{{ url_for('report') }}" class="text-blue-500 hover:text-blue-700 font-bold">
+                Ver Relatório
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+// Define a data máxima como hoje e preenche com a data atual
+const today = new Date().toISOString().split('T')[0];
+const dataInput = document.getElementById('data');
+dataInput.max = today;
+if (!dataInput.value) {
+    dataInput.value = today;
+}
+</script>
+{% endblock %}
