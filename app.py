@@ -1,66 +1,51 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response
-import sqlite3
+import psycopg2
+from psycopg2.extras import DictCursor
 import os
 import csv
 import io
 from datetime import datetime
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from flask_mail import Mail, Message
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'sua_chave_secreta')
+app.secret_key = os.environ.get('SECRET_KEY', 'a1d839b7fc37f30b10a2b76ad717c011')
 
 # Configuração do Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-# Configuração do Flask-Mail
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
-app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
-mail = Mail(app)
-
 # Lista de status disponíveis
 STATUS_CHOICES = ['Em andamento', 'Concluído', 'Pendente', 'Cancelado']
 
-# Configuração do banco de dados
-DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///database.db')
+# Configuração do banco de dados PostgreSQL
+DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/postgres')
 
 class User(UserMixin):
-    def __init__(self, id, email=None):
+    def __init__(self, id, username=None):
         self.id = id
-        self.email = email
+        self.username = username
 
 @login_manager.user_loader
 def load_user(user_id):
-    user = query_db('SELECT * FROM users WHERE id = ?', [user_id], one=True)
+    user = query_db('SELECT * FROM users WHERE id = %s', [user_id], one=True)
     if user:
-        return User(user['id'], user['email'])
+        return User(user['id'], user['username'])
     return None
 
 def get_db():
-    if DATABASE_URL.startswith('sqlite'):
-        db = sqlite3.connect('database.db')
-        db.row_factory = sqlite3.Row
-    else:
-        import psycopg2
-        from psycopg2.extras import DictCursor
-        conn = psycopg2.connect(DATABASE_URL)
-        conn.autocommit = True
-        db = conn
-        db.row_factory = DictCursor
-    return db
+    conn = psycopg2.connect(DATABASE_URL)
+    conn.autocommit = True
+    return conn
 
 def init_db():
     with app.app_context():
         db = get_db()
         try:
-            db.execute('''
+            cur = db.cursor()
+            cur.execute('''
                 CREATE TABLE IF NOT EXISTS registros (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id SERIAL PRIMARY KEY,
                     data DATE NOT NULL,
                     demanda TEXT NOT NULL,
                     assunto TEXT NOT NULL,
@@ -68,12 +53,11 @@ def init_db():
                     data_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
-            db.execute('''
+            cur.execute('''
                 CREATE TABLE IF NOT EXISTS users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id SERIAL PRIMARY KEY,
                     username TEXT NOT NULL UNIQUE,
-                    password TEXT NOT NULL,
-                    email TEXT NOT NULL UNIQUE
+                    password TEXT NOT NULL
                 )
             ''')
             db.commit()
@@ -85,30 +69,13 @@ def init_db():
 def query_db(query, args=(), one=False):
     db = get_db()
     try:
-        if DATABASE_URL.startswith('sqlite'):
-            cur = db.execute(query, args)
-            rv = cur.fetchall()
-            db.commit()
-            return (rv[0] if rv else None) if one else rv
-        else:
-            cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
-            cur.execute(query, args)
-            rv = cur.fetchall()
-            cur.close()
-            return (rv[0] if rv else None) if one else rv
+        cur = db.cursor(cursor_factory=DictCursor)
+        cur.execute(query, args)
+        rv = cur.fetchall()
+        cur.close()
+        return (rv[0] if rv else None) if one else rv
     finally:
-        if hasattr(db, 'close'):
-            db.close()
-
-def send_notification(email, demanda, status):
-    try:
-        msg = Message('Atualização de Demanda',
-                     sender=app.config['MAIL_USERNAME'],
-                     recipients=[email])
-        msg.body = f'A demanda "{demanda}" teve seu status atualizado para "{status}".'
-        mail.send(msg)
-    except Exception as e:
-        print(f"Erro ao enviar notificação: {e}")
+        db.close()
 
 @app.route('/')
 def index():
@@ -119,10 +86,10 @@ def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        user = query_db('SELECT * FROM users WHERE username = ? AND password = ?',
+        user = query_db('SELECT * FROM users WHERE username = %s AND password = %s',
                        [username, password], one=True)
         if user:
-            login_user(User(user['id'], user['email']))
+            login_user(User(user['id'], user['username']))
             return redirect(url_for('form'))
         flash('Usuário ou senha inválidos.')
     return render_template('login.html')
@@ -159,12 +126,9 @@ def submit():
             flash('Por favor, selecione um status válido.')
             return redirect(url_for('form'))
 
-        if DATABASE_URL.startswith('sqlite'):
-            query = 'INSERT INTO registros (data, demanda, assunto, status) VALUES (?, ?, ?, ?)'
-        else:
-            query = 'INSERT INTO registros (data, demanda, assunto, status) VALUES (%s, %s, %s, %s)'
-        
+        query = 'INSERT INTO registros (data, demanda, assunto, status) VALUES (%s, %s, %s, %s)'
         query_db(query, [data, demanda, assunto, status])
+        
         flash('Registro salvo com sucesso!')
         return redirect(url_for('report'))
 
@@ -179,7 +143,7 @@ def report():
     search_query = request.args.get('search', '').strip()
     try:
         if search_query:
-            registros = query_db('SELECT * FROM registros WHERE demanda LIKE ? OR assunto LIKE ? ORDER BY data_registro DESC', 
+            registros = query_db('SELECT * FROM registros WHERE demanda ILIKE %s OR assunto ILIKE %s ORDER BY data_registro DESC', 
                                ['%' + search_query + '%', '%' + search_query + '%'])
         else:
             registros = query_db('SELECT * FROM registros ORDER BY data_registro DESC')
@@ -205,31 +169,20 @@ def edit(id):
             flash('Por favor, selecione um status válido.')
             return redirect(url_for('edit', id=id))
 
-        old_status = query_db('SELECT status FROM registros WHERE id = ?', [id], one=True)['status']
-        if old_status != status and current_user.email:
-            send_notification(current_user.email, demanda, status)
-
-        if DATABASE_URL.startswith('sqlite'):
-            query = 'UPDATE registros SET data = ?, demanda = ?, assunto = ?, status = ? WHERE id = ?'
-            query_db(query, [data, demanda, assunto, status, id])
-        else:
-            query = 'UPDATE registros SET data = %s, demanda = %s, assunto = %s, status = %s WHERE id = %s'
-            query_db(query, [data, demanda, assunto, status, id])
+        query = 'UPDATE registros SET data = %s, demanda = %s, assunto = %s, status = %s WHERE id = %s'
+        query_db(query, [data, demanda, assunto, status, id])
 
         flash('Registro atualizado com sucesso!')
         return redirect(url_for('report'))
 
-    registro = query_db('SELECT * FROM registros WHERE id = ?', [id], one=True)
+    registro = query_db('SELECT * FROM registros WHERE id = %s', [id], one=True)
     return render_template('edit.html', registro=registro, status_list=STATUS_CHOICES)
 
 @app.route('/delete/<int:id>', methods=['POST'])
 @login_required
 def delete(id):
     try:
-        if DATABASE_URL.startswith('sqlite'):
-            query_db('DELETE FROM registros WHERE id = ?', [id])
-        else:
-            query_db('DELETE FROM registros WHERE id = %s', [id])
+        query_db('DELETE FROM registros WHERE id = %s', [id])
         flash('Registro excluído com sucesso!')
     except Exception as e:
         flash(f'Erro ao excluir registro: {str(e)}')
