@@ -7,12 +7,20 @@
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
 <body>
+    {% if current_user.is_authenticated %}
     <nav class="bg-blue-500 p-4">
-        <div class="container mx-auto">
-            <a href="/form" class="text-white font-bold">Formulário</a>
-            <a href="/report" class="text-white font-bold ml-4">Relatório</a>
+        <div class="container mx-auto flex justify-between items-center">
+            <div>
+                <a href="/form" class="text-white font-bold">Formulário</a>
+                <a href="/report" class="text-white font-bold ml-4">Relatório</a>
+            </div>
+            <div class="flex items-center">
+                <span class="text-white mr-4">Olá, {{ current_user.username }}</span>
+                <a href="/logout" class="text-white font-bold bg-red-600 hover:bg-red-700 px-4 py-2 rounded">Sair</a>
+            </div>
         </div>
     </nav>
+    {% endif %}
     <div class="container mx-auto px-4 py-8">
         {% with messages = get_flashed_messages() %}
             {% if messages %}

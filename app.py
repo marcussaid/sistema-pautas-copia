@@ -81,7 +81,9 @@ def query_db(query, args=(), one=False):
 
 @app.route('/')
 def index():
-    return redirect(url_for('form'))
+    if current_user.is_authenticated:
+        return redirect(url_for('form'))
+    return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
