@@ -32,9 +32,17 @@
                            value="{{ request.args.get('data_filter', '') }}">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Local</label>
-                    <input type="text" name="local_filter" class="w-full px-3 py-2 border rounded" 
-                           placeholder="Filtrar por local" value="{{ request.args.get('local_filter', '') }}">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Filtrar por</label>
+                    <div class="flex gap-2">
+                        <select name="filter_field" class="w-1/2 px-3 py-2 border rounded">
+                            <option value="local" {% if request.args.get('filter_field') == 'local' %}selected{% endif %}>Local</option>
+                            <option value="demanda" {% if request.args.get('filter_field') == 'demanda' %}selected{% endif %}>Demanda</option>
+                            <option value="assunto" {% if request.args.get('filter_field') == 'assunto' %}selected{% endif %}>Assunto</option>
+                            <option value="direcionamentos" {% if request.args.get('filter_field') == 'direcionamentos' %}selected{% endif %}>Direcionamentos</option>
+                        </select>
+                        <input type="text" name="filter_value" class="w-1/2 px-3 py-2 border rounded" 
+                               placeholder="Digite o valor" value="{{ request.args.get('filter_value', '') }}">
+                    </div>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
@@ -58,14 +66,16 @@
                 </a>
                 <div class="flex gap-2">
                     <a href="{{ url_for('export_csv', search=search_query, data_filter=request.args.get('data_filter', ''), 
-                                      local_filter=request.args.get('local_filter', ''), 
+                                      filter_field=request.args.get('filter_field', ''),
+                                      filter_value=request.args.get('filter_value', ''), 
                                       status_filter=request.args.get('status_filter', '')) }}" 
                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center gap-2">
                         <i class="fas fa-file-csv"></i>
                         Exportar CSV
                     </a>
                     <a href="{{ url_for('view_results', search=search_query, data_filter=request.args.get('data_filter', ''), 
-                                      local_filter=request.args.get('local_filter', ''), 
+                                      filter_field=request.args.get('filter_field', ''),
+                                      filter_value=request.args.get('filter_value', ''), 
                                       status_filter=request.args.get('status_filter', '')) }}" 
                        class="bg-indigo-500 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded flex items-center gap-2">
                         <i class="fas fa-eye"></i>
@@ -88,6 +98,7 @@
                         ('demanda', 'Demanda'),
                         ('assunto', 'Assunto'),
                         ('local', 'Local'),
+                        ('direcionamentos', 'Direcionamentos'),
                         ('status', 'Status'),
                         ('data_registro', 'Data de Registro'),
                         ('ultimo_editor', 'Último Editor'),
@@ -99,7 +110,8 @@
                                           direction='asc' if sort_column == column and sort_direction == 'desc' else 'desc',
                                           search=search_query,
                                           data_filter=request.args.get('data_filter', ''),
-                                          local_filter=request.args.get('local_filter', ''),
+                                          filter_field=request.args.get('filter_field', ''),
+                                          filter_value=request.args.get('filter_value', ''),
                                           status_filter=request.args.get('status_filter', ''),
                                           page=current_page) }}"
                            class="flex items-center gap-1 text-gray-700 hover:text-gray-900">
@@ -122,6 +134,7 @@
                     <td class="py-2 px-4 border-b">{{ registro['demanda'] }}</td>
                     <td class="py-2 px-4 border-b">{{ registro['assunto'] }}</td>
                     <td class="py-2 px-4 border-b">{{ registro['local'] or 'N/A' }}</td>
+                    <td class="py-2 px-4 border-b">{{ registro['direcionamentos'] or 'N/A' }}</td>
                     <td class="py-2 px-4 border-b">{{ registro['status'] }}</td>
                     <td class="py-2 px-4 border-b">{{ registro['data_registro'].strftime('%d/%m/%Y %H:%M') }}</td>
                     <td class="py-2 px-4 border-b">{{ registro['ultimo_editor'] or 'N/A' }}</td>
@@ -153,7 +166,8 @@
         <!-- Primeira página -->
         <a href="{{ url_for('report', page=1, sort=sort_column, direction=sort_direction, 
                            search=search_query, data_filter=request.args.get('data_filter', ''),
-                           local_filter=request.args.get('local_filter', ''),
+                           filter_field=request.args.get('filter_field', ''),
+                           filter_value=request.args.get('filter_value', ''),
                            status_filter=request.args.get('status_filter', '')) }}"
            class="px-3 py-1 border rounded {% if current_page == 1 %}bg-gray-100 text-gray-600{% else %}hover:bg-gray-100{% endif %}">
             <i class="fas fa-angle-double-left"></i>
@@ -162,7 +176,8 @@
         <!-- Página anterior -->
         <a href="{{ url_for('report', page=current_page-1, sort=sort_column, direction=sort_direction,
                            search=search_query, data_filter=request.args.get('data_filter', ''),
-                           local_filter=request.args.get('local_filter', ''),
+                           filter_field=request.args.get('filter_field', ''),
+                           filter_value=request.args.get('filter_value', ''),
                            status_filter=request.args.get('status_filter', '')) }}"
            class="px-3 py-1 border rounded {% if current_page == 1 %}bg-gray-100 text-gray-600{% else %}hover:bg-gray-100{% endif %}"
            {% if current_page == 1 %}disabled{% endif %}>
@@ -173,7 +188,8 @@
         {% for p in range(max(1, current_page-2), min(total_pages+1, current_page+3)) %}
         <a href="{{ url_for('report', page=p, sort=sort_column, direction=sort_direction,
                            search=search_query, data_filter=request.args.get('data_filter', ''),
-                           local_filter=request.args.get('local_filter', ''),
+                           filter_field=request.args.get('filter_field', ''),
+                           filter_value=request.args.get('filter_value', ''),
                            status_filter=request.args.get('status_filter', '')) }}"
            class="px-3 py-1 border rounded {% if current_page == p %}bg-blue-500 text-white{% else %}hover:bg-gray-100{% endif %}">
             {{ p }}
@@ -183,7 +199,8 @@
         <!-- Próxima página -->
         <a href="{{ url_for('report', page=current_page+1, sort=sort_column, direction=sort_direction,
                            search=search_query, data_filter=request.args.get('data_filter', ''),
-                           local_filter=request.args.get('local_filter', ''),
+                           filter_field=request.args.get('filter_field', ''),
+                           filter_value=request.args.get('filter_value', ''),
                            status_filter=request.args.get('status_filter', '')) }}"
            class="px-3 py-1 border rounded {% if current_page == total_pages %}bg-gray-100 text-gray-600{% else %}hover:bg-gray-100{% endif %}"
            {% if current_page == total_pages %}disabled{% endif %}>
@@ -193,7 +210,8 @@
         <!-- Última página -->
         <a href="{{ url_for('report', page=total_pages, sort=sort_column, direction=sort_direction,
                            search=search_query, data_filter=request.args.get('data_filter', ''),
-                           local_filter=request.args.get('local_filter', ''),
+                           filter_field=request.args.get('filter_field', ''),
+                           filter_value=request.args.get('filter_value', ''),
                            status_filter=request.args.get('status_filter', '')) }}"
            class="px-3 py-1 border rounded {% if current_page == total_pages %}bg-gray-100 text-gray-600{% else %}hover:bg-gray-100{% endif %}">
             <i class="fas fa-angle-double-right"></i>
@@ -221,7 +239,8 @@
 function limparFiltros() {
     document.querySelector('input[name="search"]').value = '';
     document.querySelector('input[name="data_filter"]').value = '';
-    document.querySelector('input[name="local_filter"]').value = '';
+    document.querySelector('select[name="filter_field"]').value = 'local';
+    document.querySelector('input[name="filter_value"]').value = '';
     document.querySelector('select[name="status_filter"]').value = '';
     document.getElementById('filterForm').submit();
 }
@@ -255,6 +274,10 @@ function showDetails(id) {
                     <div class="col-span-2">
                         <p class="font-bold">Local</p>
                         <p>${data.local || 'N/A'}</p>
+                    </div>
+                    <div class="col-span-2">
+                        <p class="font-bold">Direcionamentos</p>
+                        <p>${data.direcionamentos || 'N/A'}</p>
                     </div>
                     <div>
                         <p class="font-bold">Data de Registro</p>

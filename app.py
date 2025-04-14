@@ -103,9 +103,23 @@ def init_db():
                     assunto TEXT NOT NULL,
                     status TEXT NOT NULL,
                     local TEXT,
+                    direcionamentos TEXT,
                     data_registro TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'America/Manaus')
                 )
             ''')
+            
+            # Verifica e adiciona a coluna direcionamentos se não existir
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'registros' AND column_name = 'direcionamentos'
+                    ) THEN
+                        ALTER TABLE registros ADD COLUMN direcionamentos TEXT;
+                    END IF;
+                END $$;
+            """)
             
             # Verifica e adiciona a coluna local se não existir
             cur.execute("""
@@ -282,16 +296,18 @@ def submit():
 
         local = request.form.get('local', '').strip()
         
+        direcionamentos = request.form.get('direcionamentos', '').strip()
+        
         if not all([data, demanda, assunto, status, local]):
             flash('Por favor, preencha todos os campos.')
             return redirect(url_for('form'))
 
         query = '''
             INSERT INTO registros 
-            (data, demanda, assunto, status, local, ultimo_editor, data_ultima_edicao) 
-            VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP AT TIME ZONE 'America/Manaus')
+            (data, demanda, assunto, status, local, direcionamentos, ultimo_editor, data_ultima_edicao) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP AT TIME ZONE 'America/Manaus')
         '''
-        query_db(query, [data, demanda, assunto, status, local, current_user.username])
+        query_db(query, [data, demanda, assunto, status, local, direcionamentos, current_user.username])
         
         flash('Registro salvo com sucesso!')
         return redirect(url_for('report'))
@@ -350,11 +366,14 @@ def report():
             count_query += condition
             params.append(data_filter)
         
-        if local_filter:
-            condition = ' AND local ILIKE %s'
+        filter_field = request.args.get('filter_field', '').strip()
+        filter_value = request.args.get('filter_value', '').strip()
+        
+        if filter_field and filter_value:
+            condition = f' AND {filter_field} ILIKE %s'
             query += condition
             count_query += condition
-            params.append('%' + local_filter + '%')
+            params.append('%' + filter_value + '%')
         
         if status_filter:
             condition = ' AND status = %s'
@@ -410,11 +429,11 @@ def edit(id):
 
         query = '''
             UPDATE registros 
-            SET data = %s, demanda = %s, assunto = %s, status = %s, local = %s,
+            SET data = %s, demanda = %s, assunto = %s, status = %s, local = %s, direcionamentos = %s,
                 ultimo_editor = %s, data_ultima_edicao = CURRENT_TIMESTAMP AT TIME ZONE 'America/Manaus'
             WHERE id = %s
         '''
-        query_db(query, [data, demanda, assunto, status, local, current_user.username, id])
+        query_db(query, [data, demanda, assunto, status, local, direcionamentos, current_user.username, id])
 
         flash('Registro atualizado com sucesso!')
         return redirect(url_for('report'))
