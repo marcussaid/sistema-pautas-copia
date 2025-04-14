@@ -208,9 +208,17 @@ def init_db():
                     id SERIAL PRIMARY KEY,
                     message TEXT NOT NULL,
                     level TEXT NOT NULL DEFAULT 'info',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'America/Manaus')
                 )
             ''')
+
+            # Verifica se a tabela system_logs está vazia e adiciona um log inicial
+            cur.execute('SELECT COUNT(*) FROM system_logs')
+            if cur.fetchone()[0] == 0:
+                cur.execute('''
+                    INSERT INTO system_logs (message, level)
+                    VALUES ('Sistema inicializado com sucesso', 'info')
+                ''')
 
             # Criando tabela de configurações do sistema
             print("Criando/verificando tabela 'system_settings'...")
@@ -248,6 +256,16 @@ def init_db():
             if 'db' in locals():
                 db.close()
                 print("Conexão com o banco de dados fechada.")
+
+def log_system_event(message, level='info'):
+    """Registra um evento no log do sistema de forma segura"""
+    try:
+        query_db('''
+            INSERT INTO system_logs (message, level)
+            VALUES (%s, %s)
+        ''', [message, level])
+    except Exception as e:
+        print(f"Erro ao registrar log: {e}")
 
 def query_db(query, args=(), one=False):
     max_retries = 3
@@ -646,12 +664,20 @@ def admin():
     stats['status_counts'] = {row['status']: row['count'] for row in status_counts}
     
     # Obtém logs do sistema (últimos 50)
-    system_logs = query_db('''
-        SELECT message, created_at 
-        FROM system_logs 
-        ORDER BY created_at DESC 
-        LIMIT 50
-    ''') or []
+    try:
+        system_logs = query_db('''
+            SELECT message, level, created_at 
+            FROM system_logs 
+            ORDER BY created_at DESC 
+            LIMIT 50
+        ''')
+        system_logs = [
+            f"{log['created_at'].strftime('%d/%m/%Y %H:%M')} [{log['level']}] {log['message']}"
+            for log in (system_logs or [])
+        ]
+    except Exception as e:
+        print(f"Erro ao buscar logs: {e}")
+        system_logs = ["Erro ao carregar logs do sistema"]
     
     # Obtém configurações atuais
     settings = query_db('SELECT * FROM system_settings', one=True) or DEFAULT_SETTINGS
@@ -696,10 +722,7 @@ def forgot_password():
                     [temp_password, username])
             
             # Registra no log do sistema
-            query_db('''
-                INSERT INTO system_logs (message, level)
-                VALUES (%s, 'info')
-            ''', [f'Senha resetada para o usuário: {username}'])
+            log_system_event(f'Senha resetada para o usuário: {username}')
             
             flash(f'Uma nova senha foi gerada: {temp_password}')
             return redirect(url_for('login'))
@@ -752,11 +775,8 @@ def update_user(user_id):
                 WHERE id = %s
             ''', [username, is_superuser, user_id])
             
-        # Registra no log do sistema
-        query_db('''
-            INSERT INTO system_logs (message, level)
-            VALUES (%s, 'info')
-        ''', [f'Usuário atualizado: {username}'])
+            # Registra no log do sistema
+            log_system_event(f'Usuário atualizado: {username}')
         
         return jsonify({'message': 'Usuário atualizado com sucesso'})
     except Exception as e:
@@ -778,10 +798,7 @@ def reset_password(user_id):
                 [temp_password, user_id])
                 
         # Registra no log do sistema
-        query_db('''
-            INSERT INTO system_logs (message, level)
-            VALUES (%s, 'info')
-        ''', [f'Senha resetada para o usuário: {user["username"]}'])
+        log_system_event(f'Senha resetada para o usuário: {user["username"]}')
         
         flash('Senha resetada com sucesso para: ' + temp_password)
     else:
