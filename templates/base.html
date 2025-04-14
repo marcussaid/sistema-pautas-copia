@@ -19,9 +19,16 @@
                     <a href="/report" class="text-white font-bold ml-4 hover:text-blue-100">Relatório</a>
                 </div>
             </div>
-            <div class="flex items-center">
-                <span class="text-white mr-4">Olá, {{ current_user.username }}</span>
-                <a href="/logout" class="text-white font-bold bg-red-600 hover:bg-red-700 px-4 py-2 rounded transition duration-150">Sair</a>
+            <div class="flex items-center gap-4">
+                {% if current_user.is_superuser %}
+                <a href="{{ url_for('admin') }}" class="text-white font-bold hover:text-blue-100">
+                    <i class="fas fa-cogs mr-1"></i>Administração
+                </a>
+                {% endif %}
+                <span class="text-white">Olá, {{ current_user.username }}</span>
+                <a href="/logout" class="text-white font-bold bg-red-600 hover:bg-red-700 px-4 py-2 rounded transition duration-150">
+                    <i class="fas fa-sign-out-alt mr-1"></i>Sair
+                </a>
             </div>
         </div>
     </nav>

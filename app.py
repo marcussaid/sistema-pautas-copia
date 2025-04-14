@@ -16,6 +16,13 @@ def favicon():
     return send_from_directory(os.path.join(app.root_path, 'static/img'),
                              'favicon.png', mimetype='image/png')
 
+# Configurações padrão do sistema
+DEFAULT_SETTINGS = {
+    'per_page': 10,
+    'session_timeout': 60,  # minutos
+    'auto_backup': 'daily'
+}
+
 @app.route('/health')
 def health_check():
     try:
@@ -190,6 +197,29 @@ def init_db():
                     username TEXT NOT NULL UNIQUE,
                     password TEXT NOT NULL,
                     is_superuser BOOLEAN DEFAULT FALSE
+                )
+            ''')
+
+            # Criando tabela de logs do sistema
+            print("Criando/verificando tabela 'system_logs'...")
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS system_logs (
+                    id SERIAL PRIMARY KEY,
+                    message TEXT NOT NULL,
+                    level TEXT NOT NULL DEFAULT 'info',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+
+            # Criando tabela de configurações do sistema
+            print("Criando/verificando tabela 'system_settings'...")
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS system_settings (
+                    id INTEGER PRIMARY KEY DEFAULT 1,
+                    per_page INTEGER NOT NULL DEFAULT 10,
+                    session_timeout INTEGER NOT NULL DEFAULT 60,
+                    auto_backup TEXT NOT NULL DEFAULT 'daily',
+                    CONSTRAINT single_row CHECK (id = 1)
                 )
             ''')
             
@@ -570,6 +600,128 @@ if not check_db_connection():
 
 # Inicializa o banco de dados
 init_db()
+
+@app.route('/admin')
+@login_required
+def admin():
+    if not current_user.is_superuser:
+        flash('Acesso negado. Você precisa ser um SuperUser.')
+        return redirect(url_for('report'))
+        
+    # Obtém lista de usuários
+    users = query_db('SELECT * FROM users ORDER BY username')
+    
+    # Obtém estatísticas
+    stats = {
+        'total_registros': query_db('SELECT COUNT(*) FROM registros', one=True)[0],
+        'registros_hoje': query_db(
+            'SELECT COUNT(*) FROM registros WHERE DATE(data_registro) = CURRENT_DATE',
+            one=True
+        )[0],
+        'total_usuarios': query_db('SELECT COUNT(*) FROM users', one=True)[0],
+        'registros_pendentes': query_db(
+            'SELECT COUNT(*) FROM registros WHERE status = %s',
+            ['Pendente'],
+            one=True
+        )[0],
+        'status_counts': {}
+    }
+    
+    # Contagem por status
+    status_counts = query_db('''
+        SELECT status, COUNT(*) as count 
+        FROM registros 
+        GROUP BY status
+    ''')
+    stats['status_counts'] = {row['status']: row['count'] for row in status_counts}
+    
+    # Obtém logs do sistema (últimos 50)
+    system_logs = query_db('''
+        SELECT message, created_at 
+        FROM system_logs 
+        ORDER BY created_at DESC 
+        LIMIT 50
+    ''') or []
+    
+    # Obtém configurações atuais
+    settings = query_db('SELECT * FROM system_settings', one=True) or DEFAULT_SETTINGS
+    
+    return render_template('admin.html',
+                         users=users,
+                         stats=stats,
+                         system_logs=system_logs,
+                         settings=settings)
+
+@app.route('/admin/toggle-superuser/<int:user_id>', methods=['POST'])
+@login_required
+def toggle_superuser(user_id):
+    if not current_user.is_superuser:
+        flash('Acesso negado.')
+        return redirect(url_for('report'))
+        
+    user = query_db('SELECT * FROM users WHERE id = %s', [user_id], one=True)
+    if user:
+        query_db(
+            'UPDATE users SET is_superuser = NOT is_superuser WHERE id = %s',
+            [user_id]
+        )
+        flash('Permissões de usuário atualizadas com sucesso!')
+    return redirect(url_for('admin'))
+
+@app.route('/admin/reset-password/<int:user_id>', methods=['POST'])
+@login_required
+def reset_password(user_id):
+    if not current_user.is_superuser:
+        flash('Acesso negado.')
+        return redirect(url_for('report'))
+        
+    # Define uma senha padrão temporária
+    temp_password = 'changeme123'
+    query_db('UPDATE users SET password = %s WHERE id = %s',
+            [temp_password, user_id])
+    flash('Senha resetada com sucesso para: ' + temp_password)
+    return redirect(url_for('admin'))
+
+@app.route('/admin/delete-user/<int:user_id>', methods=['POST'])
+@login_required
+def delete_user(user_id):
+    if not current_user.is_superuser:
+        flash('Acesso negado.')
+        return redirect(url_for('report'))
+        
+    if current_user.id == user_id:
+        flash('Você não pode excluir seu próprio usuário.')
+        return redirect(url_for('admin'))
+        
+    query_db('DELETE FROM users WHERE id = %s', [user_id])
+    flash('Usuário excluído com sucesso!')
+    return redirect(url_for('admin'))
+
+@app.route('/admin/settings', methods=['POST'])
+@login_required
+def update_settings():
+    if not current_user.is_superuser:
+        flash('Acesso negado.')
+        return redirect(url_for('report'))
+        
+    per_page = request.form.get('per_page', type=int)
+    session_timeout = request.form.get('session_timeout', type=int)
+    auto_backup = request.form.get('auto_backup')
+    
+    if per_page and session_timeout and auto_backup:
+        query_db('''
+            INSERT INTO system_settings (per_page, session_timeout, auto_backup)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (id) DO UPDATE 
+            SET per_page = EXCLUDED.per_page,
+                session_timeout = EXCLUDED.session_timeout,
+                auto_backup = EXCLUDED.auto_backup
+        ''', [per_page, session_timeout, auto_backup])
+        flash('Configurações atualizadas com sucesso!')
+    else:
+        flash('Por favor, preencha todos os campos.')
+    
+    return redirect(url_for('admin'))
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8000))

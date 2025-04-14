@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold mb-8">Gerenciamento Avançado</h1>
+
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+                <div class="mb-4 p-4 {% if 'sucesso' in message.lower() %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %} rounded">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Gerenciamento de Usuários -->
+        <div class="bg-white p-6 rounded-lg shadow-lg">
+            <h2 class="text-xl font-bold mb-4">Gerenciamento de Usuários</h2>
+            <div class="space-y-4">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr>
+                                <th class="py-2 px-4 border-b">Usuário</th>
+                                <th class="py-2 px-4 border-b">SuperUser</th>
+                                <th class="py-2 px-4 border-b">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr class="hover:bg-gray-50">
+                                <td class="py-2 px-4 border-b">{{ user['username'] }}</td>
+                                <td class="py-2 px-4 border-b">
+                                    <span class="px-2 py-1 rounded {% if user['is_superuser'] %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                                        {{ 'Sim' if user['is_superuser'] else 'Não' }}
+                                    </span>
+                                </td>
+                                <td class="py-2 px-4 border-b">
+                                    <div class="flex gap-2 justify-center">
+                                        <form method="POST" action="{{ url_for('toggle_superuser', user_id=user['id']) }}" class="inline">
+                                            <button type="submit" class="text-blue-500 hover:text-blue-700">
+                                                <i class="fas fa-user-shield"></i>
+                                            </button>
+                                        </form>
+                                        <form method="POST" action="{{ url_for('reset_password', user_id=user['id']) }}" class="inline">
+                                            <button type="submit" class="text-yellow-500 hover:text-yellow-700">
+                                                <i class="fas fa-key"></i>
+                                            </button>
+                                        </form>
+                                        <form method="POST" action="{{ url_for('delete_user', user_id=user['id']) }}" class="inline">
+                                            <button type="submit" class="text-red-500 hover:text-red-700">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estatísticas do Sistema -->
+        <div class="bg-white p-6 rounded-lg shadow-lg">
+            <h2 class="text-xl font-bold mb-4">Estatísticas do Sistema</h2>
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="p-4 bg-blue-50 rounded-lg">
+                        <p class="text-sm text-blue-600">Total de Registros</p>
+                        <p class="text-2xl font-bold text-blue-800">{{ stats['total_registros'] }}</p>
+                    </div>
+                    <div class="p-4 bg-green-50 rounded-lg">
+                        <p class="text-sm text-green-600">Registros Hoje</p>
+                        <p class="text-2xl font-bold text-green-800">{{ stats['registros_hoje'] }}</p>
+                    </div>
+                    <div class="p-4 bg-purple-50 rounded-lg">
+                        <p class="text-sm text-purple-600">Total de Usuários</p>
+                        <p class="text-2xl font-bold text-purple-800">{{ stats['total_usuarios'] }}</p>
+                    </div>
+                    <div class="p-4 bg-yellow-50 rounded-lg">
+                        <p class="text-sm text-yellow-600">Registros Pendentes</p>
+                        <p class="text-2xl font-bold text-yellow-800">{{ stats['registros_pendentes'] }}</p>
+                    </div>
+                </div>
+
+                <!-- Status dos Registros -->
+                <div class="mt-6">
+                    <h3 class="text-lg font-semibold mb-3">Status dos Registros</h3>
+                    {% for status, count in stats['status_counts'].items() %}
+                    <div class="mb-2">
+                        <div class="flex justify-between text-sm mb-1">
+                            <span>{{ status }}</span>
+                            <span>{{ count }}</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-blue-600 h-2 rounded-full" style="width: {{ (count / stats['total_registros'] * 100)|round }}%"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs do Sistema -->
+        <div class="bg-white p-6 rounded-lg shadow-lg">
+            <h2 class="text-xl font-bold mb-4">Logs do Sistema</h2>
+            <div class="space-y-2 max-h-64 overflow-y-auto font-mono text-sm">
+                {% for log in system_logs %}
+                <div class="p-2 {% if 'error' in log.lower() %}bg-red-50 text-red-700{% elif 'warning' in log.lower() %}bg-yellow-50 text-yellow-700{% else %}bg-gray-50 text-gray-700{% endif %} rounded">
+                    {{ log }}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Configurações do Sistema -->
+        <div class="bg-white p-6 rounded-lg shadow-lg">
+            <h2 class="text-xl font-bold mb-4">Configurações do Sistema</h2>
+            <form method="POST" action="{{ url_for('update_settings') }}" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Registros por Página</label>
+                    <input type="number" name="per_page" value="{{ settings['per_page'] }}" 
+                           class="w-full px-3 py-2 border rounded">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tempo de Sessão (minutos)</label>
+                    <input type="number" name="session_timeout" value="{{ settings['session_timeout'] }}"
+                           class="w-full px-3 py-2 border rounded">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Backup Automático</label>
+                    <select name="auto_backup" class="w-full px-3 py-2 border rounded">
+                        <option value="daily" {% if settings['auto_backup'] == 'daily' %}selected{% endif %}>Diário</option>
+                        <option value="weekly" {% if settings['auto_backup'] == 'weekly' %}selected{% endif %}>Semanal</option>
+                        <option value="monthly" {% if settings['auto_backup'] == 'monthly' %}selected{% endif %}>Mensal</option>
+                        <option value="disabled" {% if settings['auto_backup'] == 'disabled' %}selected{% endif %}>Desativado</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    Salvar Configurações
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
