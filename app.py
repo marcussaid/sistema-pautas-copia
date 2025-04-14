@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, jsonify, send_from_directory
 import psycopg2
 from psycopg2.extras import DictCursor
 import os
@@ -8,8 +8,13 @@ import time
 from datetime import datetime
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 app.secret_key = os.environ.get('SECRET_KEY', 'sistema_demandas_secret_key_2024')
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static/img'),
+                             'favicon.png', mimetype='image/png')
 
 # Configuração do Flask-Login
 login_manager = LoginManager()
