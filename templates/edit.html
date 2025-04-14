@@ -30,6 +30,11 @@
                    value="{{ registro['assunto'] }}">
         </div>
         <div class="mb-4">
+            <label class="block text-gray-700 font-bold mb-2" for="local">Local</label>
+            <input type="text" id="local" name="local" required class="w-full px-3 py-2 border rounded" 
+                   placeholder="Ex: Sala de Reuniões, Auditório, etc" value="{{ registro['local'] }}">
+        </div>
+        <div class="mb-4">
             <label class="block text-gray-700 font-bold mb-2" for="status">Status</label>
             <select id="status" name="status" required class="w-full px-3 py-2 border rounded bg-white">
                 <option value="Em andamento" {% if registro['status'] == 'Em andamento' %}selected{% endif %}>Em andamento</option>

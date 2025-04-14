@@ -86,6 +86,9 @@ def init_db():
             # Criando/atualizando tabela de registros
             print("Criando/verificando tabela 'registros' e suas colunas...")
             
+            # Configura o timezone para Manaus
+            cur.execute("SET timezone = 'America/Manaus'")
+            
             # Primeiro cria a tabela se não existir
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS registros (
@@ -94,9 +97,23 @@ def init_db():
                     demanda TEXT NOT NULL,
                     assunto TEXT NOT NULL,
                     status TEXT NOT NULL,
-                    data_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    local TEXT,
+                    data_registro TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'America/Manaus')
                 )
             ''')
+            
+            # Verifica e adiciona a coluna local se não existir
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'registros' AND column_name = 'local'
+                    ) THEN
+                        ALTER TABLE registros ADD COLUMN local TEXT;
+                    END IF;
+                END $$;
+            """)
             
             # Verifica e adiciona a coluna ultimo_editor se não existir
             cur.execute("""
@@ -258,12 +275,18 @@ def submit():
             flash('Por favor, selecione um status válido.')
             return redirect(url_for('form'))
 
+        local = request.form.get('local', '').strip()
+        
+        if not all([data, demanda, assunto, status, local]):
+            flash('Por favor, preencha todos os campos.')
+            return redirect(url_for('form'))
+
         query = '''
             INSERT INTO registros 
-            (data, demanda, assunto, status, ultimo_editor, data_ultima_edicao) 
-            VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+            (data, demanda, assunto, status, local, ultimo_editor, data_ultima_edicao) 
+            VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP AT TIME ZONE 'America/Manaus')
         '''
-        query_db(query, [data, demanda, assunto, status, current_user.username])
+        query_db(query, [data, demanda, assunto, status, local, current_user.username])
         
         flash('Registro salvo com sucesso!')
         return redirect(url_for('report'))
@@ -305,13 +328,19 @@ def edit(id):
             flash('Por favor, selecione um status válido.')
             return redirect(url_for('edit', id=id))
 
+        local = request.form.get('local', '').strip()
+        
+        if not all([data, demanda, assunto, status, local]):
+            flash('Por favor, preencha todos os campos.')
+            return redirect(url_for('edit', id=id))
+
         query = '''
             UPDATE registros 
-            SET data = %s, demanda = %s, assunto = %s, status = %s, 
-                ultimo_editor = %s, data_ultima_edicao = CURRENT_TIMESTAMP 
+            SET data = %s, demanda = %s, assunto = %s, status = %s, local = %s,
+                ultimo_editor = %s, data_ultima_edicao = CURRENT_TIMESTAMP AT TIME ZONE 'America/Manaus'
             WHERE id = %s
         '''
-        query_db(query, [data, demanda, assunto, status, current_user.username, id])
+        query_db(query, [data, demanda, assunto, status, local, current_user.username, id])
 
         flash('Registro atualizado com sucesso!')
         return redirect(url_for('report'))
@@ -336,7 +365,7 @@ def export():
         registros = query_db('SELECT * FROM registros ORDER BY data_registro DESC')
         si = io.StringIO()
         cw = csv.writer(si)
-        cw.writerow(['Data', 'Demanda', 'Assunto', 'Status', 'Data de Registro', 'Último Editor', 'Data da Última Edição'])
+        cw.writerow(['Data', 'Demanda', 'Assunto', 'Local', 'Status', 'Data de Registro', 'Último Editor', 'Data da Última Edição'])
         for registro in registros:
             data_ultima_edicao = registro['data_ultima_edicao'].strftime('%d/%m/%Y %H:%M') if registro['data_ultima_edicao'] else 'N/A'
             data_registro = registro['data_registro'].strftime('%d/%m/%Y %H:%M')
@@ -344,6 +373,7 @@ def export():
                 registro['data'],
                 registro['demanda'],
                 registro['assunto'],
+                registro['local'] or 'N/A',
                 registro['status'],
                 data_registro,
                 registro['ultimo_editor'] or 'N/A',

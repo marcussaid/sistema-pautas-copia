@@ -30,6 +30,7 @@
                 <th class="py-2 px-4 border-b">Data</th>
                 <th class="py-2 px-4 border-b">Demanda</th>
                 <th class="py-2 px-4 border-b">Assunto</th>
+                <th class="py-2 px-4 border-b">Local</th>
                 <th class="py-2 px-4 border-b">Status</th>
                 <th class="py-2 px-4 border-b">Data de Registro</th>
                 <th class="py-2 px-4 border-b">Último Editor</th>
@@ -43,6 +44,7 @@
                 <td class="py-2 px-4 border-b">{{ registro['data'] }}</td>
                 <td class="py-2 px-4 border-b">{{ registro['demanda'] }}</td>
                 <td class="py-2 px-4 border-b">{{ registro['assunto'] }}</td>
+                <td class="py-2 px-4 border-b">{{ registro['local'] or 'N/A' }}</td>
                 <td class="py-2 px-4 border-b">{{ registro['status'] }}</td>
                 <td class="py-2 px-4 border-b">{{ registro['data_registro'].strftime('%d/%m/%Y %H:%M') }}</td>
                 <td class="py-2 px-4 border-b">{{ registro['ultimo_editor'] or 'N/A' }}</td>
