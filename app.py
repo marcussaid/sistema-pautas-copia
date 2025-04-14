@@ -5,6 +5,7 @@ import os
 import csv
 import io
 import time
+import random
 from datetime import datetime
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 
@@ -677,6 +678,90 @@ def toggle_superuser(user_id):
         flash('Permissões de usuário atualizadas com sucesso!')
     return redirect(url_for('admin'))
 
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        if not username:
+            flash('Por favor, informe o nome de usuário.')
+            return redirect(url_for('forgot_password'))
+            
+        user = query_db('SELECT * FROM users WHERE username = %s', [username], one=True)
+        if user:
+            # Gera uma senha temporária
+            temp_password = ''.join(random.choices('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=8))
+            
+            # Atualiza a senha no banco
+            query_db('UPDATE users SET password = %s WHERE username = %s',
+                    [temp_password, username])
+            
+            # Registra no log do sistema
+            query_db('''
+                INSERT INTO system_logs (message, level)
+                VALUES (%s, 'info')
+            ''', [f'Senha resetada para o usuário: {username}'])
+            
+            flash(f'Uma nova senha foi gerada: {temp_password}')
+            return redirect(url_for('login'))
+        else:
+            flash('Usuário não encontrado.')
+            return redirect(url_for('forgot_password'))
+            
+    return render_template('forgot_password.html')
+
+@app.route('/admin/user/<int:user_id>', methods=['GET'])
+@login_required
+def get_user(user_id):
+    if not current_user.is_superuser:
+        return jsonify({'error': 'Acesso negado'}), 403
+        
+    user = query_db('SELECT id, username, is_superuser FROM users WHERE id = %s', [user_id], one=True)
+    if user:
+        return jsonify({
+            'id': user['id'],
+            'username': user['username'],
+            'is_superuser': user['is_superuser']
+        })
+    return jsonify({'error': 'Usuário não encontrado'}), 404
+
+@app.route('/admin/user/<int:user_id>', methods=['PUT'])
+@login_required
+def update_user(user_id):
+    if not current_user.is_superuser:
+        return jsonify({'error': 'Acesso negado'}), 403
+        
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    is_superuser = data.get('is_superuser', False)
+    new_password = data.get('password', '').strip()
+    
+    if not username:
+        return jsonify({'error': 'Nome de usuário é obrigatório'}), 400
+        
+    try:
+        if new_password:
+            query_db('''
+                UPDATE users 
+                SET username = %s, is_superuser = %s, password = %s 
+                WHERE id = %s
+            ''', [username, is_superuser, new_password, user_id])
+        else:
+            query_db('''
+                UPDATE users 
+                SET username = %s, is_superuser = %s 
+                WHERE id = %s
+            ''', [username, is_superuser, user_id])
+            
+        # Registra no log do sistema
+        query_db('''
+            INSERT INTO system_logs (message, level)
+            VALUES (%s, 'info')
+        ''', [f'Usuário atualizado: {username}'])
+        
+        return jsonify({'message': 'Usuário atualizado com sucesso'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/admin/reset-password/<int:user_id>', methods=['POST'])
 @login_required
 def reset_password(user_id):
@@ -684,11 +769,24 @@ def reset_password(user_id):
         flash('Acesso negado.')
         return redirect(url_for('report'))
         
-    # Define uma senha padrão temporária
-    temp_password = 'changeme123'
-    query_db('UPDATE users SET password = %s WHERE id = %s',
-            [temp_password, user_id])
-    flash('Senha resetada com sucesso para: ' + temp_password)
+    # Gera uma senha temporária
+    temp_password = ''.join(random.choices('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=8))
+    
+    user = query_db('SELECT username FROM users WHERE id = %s', [user_id], one=True)
+    if user:
+        query_db('UPDATE users SET password = %s WHERE id = %s',
+                [temp_password, user_id])
+                
+        # Registra no log do sistema
+        query_db('''
+            INSERT INTO system_logs (message, level)
+            VALUES (%s, 'info')
+        ''', [f'Senha resetada para o usuário: {user["username"]}'])
+        
+        flash('Senha resetada com sucesso para: ' + temp_password)
+    else:
+        flash('Usuário não encontrado.')
+        
     return redirect(url_for('admin'))
 
 @app.route('/admin/delete-user/<int:user_id>', methods=['POST'])

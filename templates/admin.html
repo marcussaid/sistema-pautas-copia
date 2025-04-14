@@ -29,8 +29,12 @@
                         </thead>
                         <tbody>
                             {% for user in users %}
-                            <tr class="hover:bg-gray-50">
-                                <td class="py-2 px-4 border-b">{{ user['username'] }}</td>
+                            <tr class="hover:bg-gray-50" id="user-row-{{ user['id'] }}">
+                                <td class="py-2 px-4 border-b">
+                                    <span class="user-display">{{ user['username'] }}</span>
+                                    <input type="text" class="user-edit hidden w-full px-2 py-1 border rounded" 
+                                           value="{{ user['username'] }}">
+                                </td>
                                 <td class="py-2 px-4 border-b">
                                     <span class="px-2 py-1 rounded {% if user['is_superuser'] %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}">
                                         {{ 'Sim' if user['is_superuser'] else 'Não' }}
@@ -38,21 +42,37 @@
                                 </td>
                                 <td class="py-2 px-4 border-b">
                                     <div class="flex gap-2 justify-center">
-                                        <form method="POST" action="{{ url_for('toggle_superuser', user_id=user['id']) }}" class="inline">
-                                            <button type="submit" class="text-blue-500 hover:text-blue-700">
-                                                <i class="fas fa-user-shield"></i>
+                                        <!-- Botões de visualização -->
+                                        <div class="user-display-buttons">
+                                            <button onclick="editUser({{ user['id'] }})" class="text-blue-500 hover:text-blue-700">
+                                                <i class="fas fa-edit"></i>
                                             </button>
-                                        </form>
-                                        <form method="POST" action="{{ url_for('reset_password', user_id=user['id']) }}" class="inline">
-                                            <button type="submit" class="text-yellow-500 hover:text-yellow-700">
-                                                <i class="fas fa-key"></i>
+                                            <form method="POST" action="{{ url_for('toggle_superuser', user_id=user['id']) }}" class="inline">
+                                                <button type="submit" class="text-purple-500 hover:text-purple-700">
+                                                    <i class="fas fa-user-shield"></i>
+                                                </button>
+                                            </form>
+                                            <form method="POST" action="{{ url_for('reset_password', user_id=user['id']) }}" class="inline">
+                                                <button type="submit" class="text-yellow-500 hover:text-yellow-700">
+                                                    <i class="fas fa-key"></i>
+                                                </button>
+                                            </form>
+                                            <form method="POST" action="{{ url_for('delete_user', user_id=user['id']) }}" 
+                                                  class="inline" onsubmit="return confirm('Tem certeza que deseja excluir este usuário?');">
+                                                <button type="submit" class="text-red-500 hover:text-red-700">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                        <!-- Botões de edição -->
+                                        <div class="user-edit-buttons hidden">
+                                            <button onclick="saveUser({{ user['id'] }})" class="text-green-500 hover:text-green-700">
+                                                <i class="fas fa-save"></i>
                                             </button>
-                                        </form>
-                                        <form method="POST" action="{{ url_for('delete_user', user_id=user['id']) }}" class="inline">
-                                            <button type="submit" class="text-red-500 hover:text-red-700">
-                                                <i class="fas fa-trash"></i>
+                                            <button onclick="cancelEdit({{ user['id'] }})" class="text-red-500 hover:text-red-700">
+                                                <i class="fas fa-times"></i>
                                             </button>
-                                        </form>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>
@@ -146,4 +166,53 @@
         </div>
     </div>
 </div>
+
+<script>
+function editUser(userId) {
+    const row = document.getElementById(`user-row-${userId}`);
+    row.querySelector('.user-display').classList.add('hidden');
+    row.querySelector('.user-edit').classList.remove('hidden');
+    row.querySelector('.user-display-buttons').classList.add('hidden');
+    row.querySelector('.user-edit-buttons').classList.remove('hidden');
+}
+
+function cancelEdit(userId) {
+    const row = document.getElementById(`user-row-${userId}`);
+    row.querySelector('.user-display').classList.remove('hidden');
+    row.querySelector('.user-edit').classList.add('hidden');
+    row.querySelector('.user-display-buttons').classList.remove('hidden');
+    row.querySelector('.user-edit-buttons').classList.add('hidden');
+    
+    // Restaura o valor original
+    const displayUsername = row.querySelector('.user-display').textContent;
+    row.querySelector('.user-edit').value = displayUsername;
+}
+
+function saveUser(userId) {
+    const row = document.getElementById(`user-row-${userId}`);
+    const newUsername = row.querySelector('.user-edit').value;
+    
+    fetch(`/admin/user/${userId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            username: newUsername
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+        } else {
+            row.querySelector('.user-display').textContent = newUsername;
+            cancelEdit(userId);
+        }
+    })
+    .catch(error => {
+        alert('Erro ao atualizar usuário: ' + error);
+    });
+}
+</script>
 {% endblock %}
