@@ -454,42 +454,40 @@ def delete(id):
         flash(f'Erro ao excluir registro: {str(e)}')
     return redirect(url_for('report'))
 
-@app.route('/export', methods=['GET'])
+def get_filtered_registros():
+    """Função auxiliar para obter registros filtrados"""
+    search_query = request.args.get('search', '').strip()
+    data_filter = request.args.get('data_filter', '').strip()
+    local_filter = request.args.get('local_filter', '').strip()
+    status_filter = request.args.get('status_filter', '').strip()
+
+    query = 'SELECT * FROM registros WHERE 1=1'
+    params = []
+
+    if search_query:
+        query += ' AND (demanda ILIKE %s OR assunto ILIKE %s)'
+        params.extend(['%' + search_query + '%', '%' + search_query + '%'])
+    
+    if data_filter:
+        query += ' AND data = %s'
+        params.append(data_filter)
+    
+    if local_filter:
+        query += ' AND local ILIKE %s'
+        params.append('%' + local_filter + '%')
+    
+    if status_filter:
+        query += ' AND status = %s'
+        params.append(status_filter)
+
+    query += ' ORDER BY data_registro DESC'
+    return query_db(query, params)
+
+@app.route('/export/csv')
 @login_required
-def export():
+def export_csv():
     try:
-        # Obtém todos os filtros
-        search_query = request.args.get('search', '').strip()
-        data_filter = request.args.get('data_filter', '').strip()
-        local_filter = request.args.get('local_filter', '').strip()
-        status_filter = request.args.get('status_filter', '').strip()
-
-        # Constrói a query base
-        query = 'SELECT * FROM registros WHERE 1=1'
-        params = []
-
-        # Adiciona condições conforme os filtros
-        if search_query:
-            query += ' AND (demanda ILIKE %s OR assunto ILIKE %s)'
-            params.extend(['%' + search_query + '%', '%' + search_query + '%'])
-        
-        if data_filter:
-            query += ' AND data = %s'
-            params.append(data_filter)
-        
-        if local_filter:
-            query += ' AND local ILIKE %s'
-            params.append('%' + local_filter + '%')
-        
-        if status_filter:
-            query += ' AND status = %s'
-            params.append(status_filter)
-
-        # Adiciona ordenação
-        query += ' ORDER BY data_registro DESC'
-
-        # Executa a query
-        registros = query_db(query, params)
+        registros = get_filtered_registros()
         si = io.StringIO()
         cw = csv.writer(si)
         cw.writerow(['Data', 'Demanda', 'Assunto', 'Local', 'Status', 'Data de Registro', 'Último Editor', 'Data da Última Edição'])
@@ -508,11 +506,27 @@ def export():
             ])
         
         output = make_response(si.getvalue())
-        output.headers["Content-Disposition"] = "attachment; filename=registros.csv"
+        output.headers["Content-Disposition"] = "attachment; filename=relatorio.csv"
         output.headers["Content-type"] = "text/csv"
         return output
     except Exception as e:
         flash(f'Erro ao exportar dados: {str(e)}')
+        return redirect(url_for('report'))
+
+@app.route('/export/pdf')
+@login_required
+def export_pdf():
+    try:
+        registros = get_filtered_registros()
+        html_content = render_template('pdf_report.html', registros=registros, datetime=datetime)
+        pdf = HTML(string=html_content, base_url=request.host_url).write_pdf()
+        
+        response = make_response(pdf)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = 'attachment; filename=relatorio.pdf'
+        return response
+    except Exception as e:
+        flash(f'Erro ao exportar PDF: {str(e)}')
         return redirect(url_for('report'))
 
 # Verifica a conexão com o banco de dados antes de iniciar

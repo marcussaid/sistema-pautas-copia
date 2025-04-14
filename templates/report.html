@@ -57,14 +57,14 @@
                     Novo Registro
                 </a>
                 <div class="flex gap-2">
-                    <a href="{{ url_for('export', format='csv', search=search_query, data_filter=request.args.get('data_filter', ''), 
+                    <a href="{{ url_for('export_csv', search=search_query, data_filter=request.args.get('data_filter', ''), 
                                       local_filter=request.args.get('local_filter', ''), 
                                       status_filter=request.args.get('status_filter', '')) }}" 
                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center gap-2">
                         <i class="fas fa-file-csv"></i>
                         Exportar CSV
                     </a>
-                    <a href="{{ url_for('export', format='pdf', search=search_query, data_filter=request.args.get('data_filter', ''), 
+                    <a href="{{ url_for('export_pdf', search=search_query, data_filter=request.args.get('data_filter', ''), 
                                       local_filter=request.args.get('local_filter', ''), 
                                       status_filter=request.args.get('status_filter', '')) }}" 
                        class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded flex items-center gap-2">
