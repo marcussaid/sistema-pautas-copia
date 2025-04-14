@@ -16,6 +16,28 @@ def favicon():
     return send_from_directory(os.path.join(app.root_path, 'static/img'),
                              'favicon.png', mimetype='image/png')
 
+@app.route('/health')
+def health_check():
+    try:
+        # Verifica a conexão com o banco de dados
+        db = get_db()
+        cur = db.cursor()
+        cur.execute("SELECT 1")
+        cur.close()
+        db.close()
+        
+        return jsonify({
+            'status': 'healthy',
+            'timestamp': datetime.now().isoformat(),
+            'database': 'connected'
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'timestamp': datetime.now().isoformat(),
+            'error': str(e)
+        }), 500
+
 # Configuração do Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)

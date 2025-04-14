@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: sistema-pautas
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    healthCheckPath: /health
+    healthCheckTimeout: 100
+    healthCheckInterval: 15
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.12
+      - key: PORT
+        value: 8000
