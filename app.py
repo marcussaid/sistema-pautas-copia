@@ -83,8 +83,10 @@ def init_db():
             db = get_db()
             cur = db.cursor()
             
-            # Criando tabela de registros
-            print("Criando/verificando tabela 'registros'...")
+            # Criando/atualizando tabela de registros
+            print("Criando/verificando tabela 'registros' e suas colunas...")
+            
+            # Primeiro cria a tabela se não existir
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS registros (
                     id SERIAL PRIMARY KEY,
@@ -92,11 +94,35 @@ def init_db():
                     demanda TEXT NOT NULL,
                     assunto TEXT NOT NULL,
                     status TEXT NOT NULL,
-                    data_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    ultimo_editor TEXT,
-                    data_ultima_edicao TIMESTAMP
+                    data_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
+            
+            # Verifica e adiciona a coluna ultimo_editor se não existir
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'registros' AND column_name = 'ultimo_editor'
+                    ) THEN
+                        ALTER TABLE registros ADD COLUMN ultimo_editor TEXT;
+                    END IF;
+                END $$;
+            """)
+            
+            # Verifica e adiciona a coluna data_ultima_edicao se não existir
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'registros' AND column_name = 'data_ultima_edicao'
+                    ) THEN
+                        ALTER TABLE registros ADD COLUMN data_ultima_edicao TIMESTAMP;
+                    END IF;
+                END $$;
+            """)
             
             # Criando tabela de usuários
             print("Criando/verificando tabela 'users'...")
