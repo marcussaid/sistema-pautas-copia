@@ -111,15 +111,55 @@ def check_db_connection():
         if 'db' in locals():
             db.close()
 
+def log_system_event(message, level='info'):
+    """Registra um evento no log do sistema de forma segura"""
+    try:
+        query_db('''
+            INSERT INTO system_logs (message, level)
+            VALUES (%s, %s)
+        ''', [message, level])
+    except Exception as e:
+        print(f"Erro ao registrar log: {e}")
+
+def query_db(query, args=(), one=False):
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            print(f"Executando query (tentativa {attempt + 1}): {query[:100]}...")  # Mostra apenas os primeiros 100 caracteres
+            db = get_db()
+            cur = db.cursor(cursor_factory=DictCursor)
+            cur.execute(query, args)
+            
+            if query.strip().upper().startswith(('INSERT', 'UPDATE', 'DELETE')):
+                db.commit()
+                affected_rows = cur.rowcount
+                print(f"Query executada com sucesso. Linhas afetadas: {affected_rows}")
+                cur.close()
+                return affected_rows
+            else:
+                rv = cur.fetchall()
+                print(f"Query executada com sucesso. Resultados obtidos: {len(rv)}")
+                cur.close()
+                return (rv[0] if rv else None) if one else rv
+                
+        except psycopg2.OperationalError as e:
+            print(f"Erro operacional na tentativa {attempt + 1}: {e}")
+            if attempt == max_retries - 1:
+                raise
+            time.sleep(1)
+        except Exception as e:
+            print(f"Erro ao executar query: {e}")
+            raise
+        finally:
+            if 'db' in locals():
+                db.close()
+
 def init_db():
     print("Iniciando configuração do banco de dados...")
     with app.app_context():
         try:
             db = get_db()
             cur = db.cursor()
-            
-            # Criando/atualizando tabela de registros
-            print("Criando/verificando tabela 'registros' e suas colunas...")
             
             # Configura o timezone para Manaus
             cur.execute("SET timezone = 'America/Manaus'")
@@ -256,49 +296,6 @@ def init_db():
             if 'db' in locals():
                 db.close()
                 print("Conexão com o banco de dados fechada.")
-
-def log_system_event(message, level='info'):
-    """Registra um evento no log do sistema de forma segura"""
-    try:
-        query_db('''
-            INSERT INTO system_logs (message, level)
-            VALUES (%s, %s)
-        ''', [message, level])
-    except Exception as e:
-        print(f"Erro ao registrar log: {e}")
-
-def query_db(query, args=(), one=False):
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            print(f"Executando query (tentativa {attempt + 1}): {query[:100]}...")  # Mostra apenas os primeiros 100 caracteres
-            db = get_db()
-            cur = db.cursor(cursor_factory=DictCursor)
-            cur.execute(query, args)
-            
-            if query.strip().upper().startswith(('INSERT', 'UPDATE', 'DELETE')):
-                db.commit()
-                affected_rows = cur.rowcount
-                print(f"Query executada com sucesso. Linhas afetadas: {affected_rows}")
-                cur.close()
-                return affected_rows
-            else:
-                rv = cur.fetchall()
-                print(f"Query executada com sucesso. Resultados obtidos: {len(rv)}")
-                cur.close()
-                return (rv[0] if rv else None) if one else rv
-                
-        except psycopg2.OperationalError as e:
-            print(f"Erro operacional na tentativa {attempt + 1}: {e}")
-            if attempt == max_retries - 1:
-                raise
-            time.sleep(1)
-        except Exception as e:
-            print(f"Erro ao executar query: {e}")
-            raise
-        finally:
-            if 'db' in locals():
-                db.close()
 
 @app.route('/')
 def index():
@@ -621,13 +618,33 @@ def view_results():
         flash(f'Erro ao carregar resultados: {str(e)}')
         return redirect(url_for('report'))
 
-# Verifica a conexão com o banco de dados antes de iniciar
-if not check_db_connection():
-    print("ERRO: Não foi possível conectar ao banco de dados!")
-    raise Exception("Falha na conexão com o banco de dados")
-
-# Inicializa o banco de dados
-init_db()
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        if not username:
+            flash('Por favor, informe o nome de usuário.')
+            return redirect(url_for('forgot_password'))
+            
+        user = query_db('SELECT * FROM users WHERE username = %s', [username], one=True)
+        if user:
+            # Gera uma senha temporária
+            temp_password = ''.join(random.choices('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=8))
+            
+            # Atualiza a senha no banco
+            query_db('UPDATE users SET password = %s WHERE username = %s',
+                    [temp_password, username])
+            
+            # Registra no log do sistema
+            log_system_event(f'Senha resetada para o usuário: {username}')
+            
+            flash(f'Uma nova senha foi gerada: {temp_password}')
+            return redirect(url_for('login'))
+        else:
+            flash('Usuário não encontrado.')
+            return redirect(url_for('forgot_password'))
+            
+    return render_template('forgot_password.html')
 
 @app.route('/admin')
 @login_required
@@ -688,50 +705,6 @@ def admin():
                          system_logs=system_logs,
                          settings=settings)
 
-@app.route('/admin/toggle-superuser/<int:user_id>', methods=['POST'])
-@login_required
-def toggle_superuser(user_id):
-    if not current_user.is_superuser:
-        flash('Acesso negado.')
-        return redirect(url_for('report'))
-        
-    user = query_db('SELECT * FROM users WHERE id = %s', [user_id], one=True)
-    if user:
-        query_db(
-            'UPDATE users SET is_superuser = NOT is_superuser WHERE id = %s',
-            [user_id]
-        )
-        flash('Permissões de usuário atualizadas com sucesso!')
-    return redirect(url_for('admin'))
-
-@app.route('/forgot-password', methods=['GET', 'POST'])
-def forgot_password():
-    if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        if not username:
-            flash('Por favor, informe o nome de usuário.')
-            return redirect(url_for('forgot_password'))
-            
-        user = query_db('SELECT * FROM users WHERE username = %s', [username], one=True)
-        if user:
-            # Gera uma senha temporária
-            temp_password = ''.join(random.choices('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=8))
-            
-            # Atualiza a senha no banco
-            query_db('UPDATE users SET password = %s WHERE username = %s',
-                    [temp_password, username])
-            
-            # Registra no log do sistema
-            log_system_event(f'Senha resetada para o usuário: {username}')
-            
-            flash(f'Uma nova senha foi gerada: {temp_password}')
-            return redirect(url_for('login'))
-        else:
-            flash('Usuário não encontrado.')
-            return redirect(url_for('forgot_password'))
-            
-    return render_template('forgot_password.html')
-
 @app.route('/admin/user/<int:user_id>', methods=['GET'])
 @login_required
 def get_user(user_id):
@@ -762,91 +735,45 @@ def update_user(user_id):
         return jsonify({'error': 'Nome de usuário é obrigatório'}), 400
         
     try:
+        # Verifica se o usuário existe
+        user = query_db('SELECT * FROM users WHERE id = %s', [user_id], one=True)
+        if not user:
+            return jsonify({'error': 'Usuário não encontrado'}), 404
+            
+        # Verifica se o novo username já existe para outro usuário
+        existing_user = query_db(
+            'SELECT * FROM users WHERE username = %s AND id != %s', 
+            [username, user_id], 
+            one=True
+        )
+        if existing_user:
+            return jsonify({'error': 'Nome de usuário já existe'}), 400
+            
+        # Constrói a query de atualização
         if new_password:
-            query_db('''
+            query = '''
                 UPDATE users 
                 SET username = %s, is_superuser = %s, password = %s 
                 WHERE id = %s
-            ''', [username, is_superuser, new_password, user_id])
+            '''
+            params = [username, is_superuser, new_password, user_id]
+            log_message = f'Usuário {username} atualizado (nome, permissões e senha)'
         else:
-            query_db('''
+            query = '''
                 UPDATE users 
                 SET username = %s, is_superuser = %s 
                 WHERE id = %s
-            ''', [username, is_superuser, user_id])
+            '''
+            params = [username, is_superuser, user_id]
+            log_message = f'Usuário {username} atualizado (nome e permissões)'
             
-            # Registra no log do sistema
-            log_system_event(f'Usuário atualizado: {username}')
-        
-        return jsonify({'message': 'Usuário atualizado com sucesso'})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/admin/reset-password/<int:user_id>', methods=['POST'])
-@login_required
-def reset_password(user_id):
-    if not current_user.is_superuser:
-        flash('Acesso negado.')
-        return redirect(url_for('report'))
-        
-    # Gera uma senha temporária
-    temp_password = ''.join(random.choices('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=8))
-    
-    user = query_db('SELECT username FROM users WHERE id = %s', [user_id], one=True)
-    if user:
-        query_db('UPDATE users SET password = %s WHERE id = %s',
-                [temp_password, user_id])
-                
+        # Executa a atualização
+        query_db(query, params)
+            
         # Registra no log do sistema
-        log_system_event(f'Senha resetada para o usuário: {user["username"]}')
+        log_system_event(log_message)
         
-        flash('Senha resetada com sucesso para: ' + temp_password)
-    else:
-        flash('Usuário não encontrado.')
-        
-    return redirect(url_for('admin'))
-
-@app.route('/admin/delete-user/<int:user_id>', methods=['POST'])
-@login_required
-def delete_user(user_id):
-    if not current_user.is_superuser:
-        flash('Acesso negado.')
-        return redirect(url_for('report'))
-        
-    if current_user.id == user_id:
-        flash('Você não pode excluir seu próprio usuário.')
-        return redirect(url_for('admin'))
-        
-    query_db('DELETE FROM users WHERE id = %s', [user_id])
-    flash('Usuário excluído com sucesso!')
-    return redirect(url_for('admin'))
-
-@app.route('/admin/settings', methods=['POST'])
-@login_required
-def update_settings():
-    if not current_user.is_superuser:
-        flash('Acesso negado.')
-        return redirect(url_for('report'))
-        
-    per_page = request.form.get('per_page', type=int)
-    session_timeout = request.form.get('session_timeout', type=int)
-    auto_backup = request.form.get('auto_backup')
-    
-    if per_page and session_timeout and auto_backup:
-        query_db('''
-            INSERT INTO system_settings (per_page, session_timeout, auto_backup)
-            VALUES (%s, %s, %s)
-            ON CONFLICT (id) DO UPDATE 
-            SET per_page = EXCLUDED.per_page,
-                session_timeout = EXCLUDED.session_timeout,
-                auto_backup = EXCLUDED.auto_backup
-        ''', [per_page, session_timeout, auto_backup])
-        flash('Configurações atualizadas com sucesso!')
-    else:
-        flash('Por favor, preencha todos os campos.')
-    
-    return redirect(url_for('admin'))
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+        return jsonify({
+            'message': 'Usuário atualizado com sucesso',
+            'user': {
+                'i

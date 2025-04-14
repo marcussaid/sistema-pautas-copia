@@ -38,14 +38,6 @@
                         <i class="fas fa-trash text-red-500"></i>
                         <span>Excluir usuário</span>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <i class="fas fa-save text-green-500"></i>
-                        <span>Salvar alterações</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <i class="fas fa-times text-red-500"></i>
-                        <span>Cancelar edição</span>
-                    </div>
                 </div>
             </div>
 
@@ -63,14 +55,26 @@
                             {% for user in users %}
                             <tr class="hover:bg-gray-50" id="user-row-{{ user['id'] }}">
                                 <td class="py-2 px-4 border-b">
-                                    <span class="user-display">{{ user['username'] }}</span>
-                                    <input type="text" class="user-edit hidden w-full px-2 py-1 border rounded" 
-                                           value="{{ user['username'] }}">
+                                    <div class="user-display">{{ user['username'] }}</div>
+                                    <div class="user-edit hidden">
+                                        <input type="text" class="username-input w-full px-2 py-1 border rounded" 
+                                               value="{{ user['username'] }}">
+                                        <input type="password" class="password-input mt-2 w-full px-2 py-1 border rounded" 
+                                               placeholder="Nova senha (opcional)">
+                                    </div>
                                 </td>
                                 <td class="py-2 px-4 border-b">
-                                    <span class="px-2 py-1 rounded {% if user['is_superuser'] %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}">
-                                        {{ 'Sim' if user['is_superuser'] else 'Não' }}
-                                    </span>
+                                    <div class="user-display">
+                                        <span class="px-2 py-1 rounded {% if user['is_superuser'] %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                                            {{ 'Sim' if user['is_superuser'] else 'Não' }}
+                                        </span>
+                                    </div>
+                                    <div class="user-edit hidden">
+                                        <select class="superuser-select w-full px-2 py-1 border rounded">
+                                            <option value="false" {% if not user['is_superuser'] %}selected{% endif %}>Não</option>
+                                            <option value="true" {% if user['is_superuser'] %}selected{% endif %}>Sim</option>
+                                        </select>
+                                    </div>
                                 </td>
                                 <td class="py-2 px-4 border-b">
                                     <div class="flex gap-2 justify-center">
@@ -79,16 +83,6 @@
                                             <button onclick="editUser({{ user['id'] }})" class="text-blue-500 hover:text-blue-700" title="Editar usuário">
                                                 <i class="fas fa-edit"></i>
                                             </button>
-                                            <form method="POST" action="{{ url_for('toggle_superuser', user_id=user['id']) }}" class="inline">
-                                                <button type="submit" class="text-purple-500 hover:text-purple-700" title="Alterar permissões">
-                                                    <i class="fas fa-user-shield"></i>
-                                                </button>
-                                            </form>
-                                            <form method="POST" action="{{ url_for('reset_password', user_id=user['id']) }}" class="inline">
-                                                <button type="submit" class="text-yellow-500 hover:text-yellow-700" title="Resetar senha">
-                                                    <i class="fas fa-key"></i>
-                                                </button>
-                                            </form>
                                             <form method="POST" action="{{ url_for('delete_user', user_id=user['id']) }}" 
                                                   class="inline" onsubmit="return confirm('Tem certeza que deseja excluir este usuário?');">
                                                 <button type="submit" class="text-red-500 hover:text-red-700" title="Excluir usuário">
@@ -98,11 +92,11 @@
                                         </div>
                                         <!-- Botões de edição -->
                                         <div class="user-edit-buttons hidden">
-                                            <button onclick="saveUser({{ user['id'] }})" class="text-green-500 hover:text-green-700" title="Salvar alterações">
-                                                <i class="fas fa-save"></i>
+                                            <button onclick="saveUser({{ user['id'] }})" class="bg-green-500 hover:bg-green-700 text-white px-3 py-1 rounded">
+                                                Salvar
                                             </button>
-                                            <button onclick="cancelEdit({{ user['id'] }})" class="text-red-500 hover:text-red-700" title="Cancelar edição">
-                                                <i class="fas fa-times"></i>
+                                            <button onclick="cancelEdit({{ user['id'] }})" class="bg-gray-500 hover:bg-gray-700 text-white px-3 py-1 rounded ml-2">
+                                                Cancelar
                                             </button>
                                         </div>
                                     </div>
@@ -202,27 +196,25 @@
 <script>
 function editUser(userId) {
     const row = document.getElementById(`user-row-${userId}`);
-    row.querySelector('.user-display').classList.add('hidden');
-    row.querySelector('.user-edit').classList.remove('hidden');
+    row.querySelectorAll('.user-display').forEach(el => el.classList.add('hidden'));
+    row.querySelectorAll('.user-edit').forEach(el => el.classList.remove('hidden'));
     row.querySelector('.user-display-buttons').classList.add('hidden');
     row.querySelector('.user-edit-buttons').classList.remove('hidden');
 }
 
 function cancelEdit(userId) {
     const row = document.getElementById(`user-row-${userId}`);
-    row.querySelector('.user-display').classList.remove('hidden');
-    row.querySelector('.user-edit').classList.add('hidden');
+    row.querySelectorAll('.user-display').forEach(el => el.classList.remove('hidden'));
+    row.querySelectorAll('.user-edit').forEach(el => el.classList.add('hidden'));
     row.querySelector('.user-display-buttons').classList.remove('hidden');
     row.querySelector('.user-edit-buttons').classList.add('hidden');
-    
-    // Restaura o valor original
-    const displayUsername = row.querySelector('.user-display').textContent;
-    row.querySelector('.user-edit').value = displayUsername;
 }
 
 function saveUser(userId) {
     const row = document.getElementById(`user-row-${userId}`);
-    const newUsername = row.querySelector('.user-edit').value;
+    const newUsername = row.querySelector('.username-input').value;
+    const newPassword = row.querySelector('.password-input').value;
+    const isSuperuser = row.querySelector('.superuser-select').value === 'true';
     
     fetch(`/admin/user/${userId}`, {
         method: 'PUT',
@@ -230,7 +222,9 @@ function saveUser(userId) {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            username: newUsername
+            username: newUsername,
+            password: newPassword,
+            is_superuser: isSuperuser
         })
     })
     .then(response => response.json())
@@ -238,8 +232,22 @@ function saveUser(userId) {
         if (data.error) {
             alert(data.error);
         } else {
+            // Atualiza a exibição
             row.querySelector('.user-display').textContent = newUsername;
+            const statusSpan = row.querySelector('.user-display span');
+            if (isSuperuser) {
+                statusSpan.textContent = 'Sim';
+                statusSpan.classList.remove('bg-gray-100', 'text-gray-800');
+                statusSpan.classList.add('bg-green-100', 'text-green-800');
+            } else {
+                statusSpan.textContent = 'Não';
+                statusSpan.classList.remove('bg-green-100', 'text-green-800');
+                statusSpan.classList.add('bg-gray-100', 'text-gray-800');
+            }
             cancelEdit(userId);
+            
+            // Recarrega a página para atualizar todas as informações
+            window.location.reload();
         }
     })
     .catch(error => {
