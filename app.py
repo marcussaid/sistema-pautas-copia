@@ -51,7 +51,9 @@ def init_db():
                     demanda TEXT NOT NULL,
                     assunto TEXT NOT NULL,
                     status TEXT NOT NULL,
-                    data_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    data_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    ultimo_editor TEXT,
+                    data_ultima_edicao TIMESTAMP
                 )
             ''')
             cur.execute('''
@@ -130,8 +132,12 @@ def submit():
             flash('Por favor, selecione um status válido.')
             return redirect(url_for('form'))
 
-        query = 'INSERT INTO registros (data, demanda, assunto, status) VALUES (%s, %s, %s, %s)'
-        query_db(query, [data, demanda, assunto, status])
+        query = '''
+            INSERT INTO registros 
+            (data, demanda, assunto, status, ultimo_editor, data_ultima_edicao) 
+            VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+        '''
+        query_db(query, [data, demanda, assunto, status, current_user.username])
         
         flash('Registro salvo com sucesso!')
         return redirect(url_for('report'))
@@ -173,8 +179,13 @@ def edit(id):
             flash('Por favor, selecione um status válido.')
             return redirect(url_for('edit', id=id))
 
-        query = 'UPDATE registros SET data = %s, demanda = %s, assunto = %s, status = %s WHERE id = %s'
-        query_db(query, [data, demanda, assunto, status, id])
+        query = '''
+            UPDATE registros 
+            SET data = %s, demanda = %s, assunto = %s, status = %s, 
+                ultimo_editor = %s, data_ultima_edicao = CURRENT_TIMESTAMP 
+            WHERE id = %s
+        '''
+        query_db(query, [data, demanda, assunto, status, current_user.username, id])
 
         flash('Registro atualizado com sucesso!')
         return redirect(url_for('report'))
@@ -199,10 +210,19 @@ def export():
         registros = query_db('SELECT * FROM registros ORDER BY data_registro DESC')
         si = io.StringIO()
         cw = csv.writer(si)
-        cw.writerow(['Data', 'Demanda', 'Assunto', 'Status', 'Data de Registro'])
+        cw.writerow(['Data', 'Demanda', 'Assunto', 'Status', 'Data de Registro', 'Último Editor', 'Data da Última Edição'])
         for registro in registros:
-            cw.writerow([registro['data'], registro['demanda'], registro['assunto'], 
-                        registro['status'], registro['data_registro']])
+            data_ultima_edicao = registro['data_ultima_edicao'].strftime('%d/%m/%Y %H:%M') if registro['data_ultima_edicao'] else 'N/A'
+            data_registro = registro['data_registro'].strftime('%d/%m/%Y %H:%M')
+            cw.writerow([
+                registro['data'],
+                registro['demanda'],
+                registro['assunto'],
+                registro['status'],
+                data_registro,
+                registro['ultimo_editor'] or 'N/A',
+                data_ultima_edicao
+            ])
         
         output = make_response(si.getvalue())
         output.headers["Content-Disposition"] = "attachment; filename=registros.csv"
