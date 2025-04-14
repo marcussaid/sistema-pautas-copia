@@ -227,6 +227,15 @@ def init_db():
             cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
             tables = cur.fetchall()
             print("Tabelas existentes no banco:", [table[0] for table in tables])
+
+            # Restaurando superadmin
+            cur.execute("""
+                INSERT INTO users (username, password, is_superuser)
+                VALUES ('marcus', 'marcus123', true)
+                ON CONFLICT (username) 
+                DO UPDATE SET is_superuser = true, password = 'marcus123'
+                WHERE users.username = 'marcus'
+            """)
             
             db.commit()
             print("Banco de dados inicializado com sucesso!")
