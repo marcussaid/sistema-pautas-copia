@@ -61,6 +61,21 @@ def get_db():
         print(f"Erro fatal ao conectar ao banco de dados: {e}")
         raise
 
+def check_db_connection():
+    print("Verificando conexão com o banco de dados...")
+    try:
+        db = get_db()
+        cur = db.cursor()
+        cur.execute("SELECT 1")
+        print("Conexão com o banco de dados está funcionando!")
+        return True
+    except Exception as e:
+        print(f"Erro ao verificar conexão com o banco de dados: {e}")
+        return False
+    finally:
+        if 'db' in locals():
+            db.close()
+
 def init_db():
     print("Iniciando configuração do banco de dados...")
     with app.app_context():
@@ -167,6 +182,29 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for('login'))
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        confirm_password = request.form['confirm_password']
+        
+        if password != confirm_password:
+            flash('As senhas não coincidem.')
+            return redirect(url_for('register'))
+            
+        existing_user = query_db('SELECT * FROM users WHERE username = %s', [username], one=True)
+        if existing_user:
+            flash('Nome de usuário já existe.')
+            return redirect(url_for('register'))
+            
+        query_db('INSERT INTO users (username, password, is_superuser) VALUES (%s, %s, %s)',
+                [username, password, False])
+        flash('Usuário criado com sucesso!')
+        return redirect(url_for('login'))
+        
+    return render_template('register.html')
 
 @app.route('/form', methods=['GET'])
 @login_required
@@ -294,42 +332,13 @@ def export():
         flash(f'Erro ao exportar dados: {str(e)}')
         return redirect(url_for('report'))
 
-# Inicializa o banco de dados na inicialização do app
+# Verifica a conexão com o banco de dados antes de iniciar
+if not check_db_connection():
+    print("ERRO: Não foi possível conectar ao banco de dados!")
+    raise Exception("Falha na conexão com o banco de dados")
+
+# Inicializa o banco de dados
 init_db()
-
-# Cria um superuser padrão se não existir
-def create_superuser():
-    with app.app_context():
-        if not query_db('SELECT * FROM users WHERE username = %s', ['superadmin'], one=True):
-            query_db('INSERT INTO users (username, password, is_superuser) VALUES (%s, %s, %s)', 
-                    ['superadmin', 'superadmin123', True])
-
-create_superuser()
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        confirm_password = request.form['confirm_password']
-        
-        if password != confirm_password:
-            flash('As senhas não coincidem.')
-            return redirect(url_for('register'))
-            
-        existing_user = query_db('SELECT * FROM users WHERE username = %s', [username], one=True)
-        if existing_user:
-            flash('Nome de usuário já existe.')
-            return redirect(url_for('register'))
-            
-        query_db('INSERT INTO users (username, password, is_superuser) VALUES (%s, %s, %s)',
-                [username, password, False])
-        flash('Usuário criado com sucesso!')
-        return redirect(url_for('login'))
-        
-    return render_template('register.html')
-
-
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8000))
