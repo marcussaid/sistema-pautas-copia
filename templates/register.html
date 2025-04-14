@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold mb-8">Criar Conta</h1>
+    
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+                <div class="mb-4 p-4 {% if 'sucesso' in message.lower() %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %} rounded">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('register') }}" class="max-w-lg">
+        <div class="mb-4">
+            <label class="block text-gray-700 font-bold mb-2" for="username">Usuário</label>
+            <input type="text" id="username" name="username" required 
+                   class="w-full px-3 py-2 border rounded bg-white" 
+                   placeholder="Digite seu usuário">
+        </div>
+        <div class="mb-4">
+            <label class="block text-gray-700 font-bold mb-2" for="password">Senha</label>
+            <input type="password" id="password" name="password" required 
+                   class="w-full px-3 py-2 border rounded bg-white" 
+                   placeholder="Digite sua senha">
+        </div>
+        <div class="mb-4">
+            <label class="block text-gray-700 font-bold mb-2" for="confirm_password">Confirmar Senha</label>
+            <input type="password" id="confirm_password" name="confirm_password" required 
+                   class="w-full px-3 py-2 border rounded bg-white" 
+                   placeholder="Confirme sua senha">
+        </div>
+        <div class="flex items-center justify-between">
+            <button type="submit" 
+                    class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                Criar Conta
+            </button>
+            <a href="{{ url_for('login') }}" 
+               class="text-blue-500 hover:text-blue-700 font-bold">
+                Voltar ao Login
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

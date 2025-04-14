@@ -8,7 +8,7 @@ from datetime import datetime
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'a1d839b7fc37f30b10a2b76ad717c011')
+app.secret_key = os.environ.get('SECRET_KEY', 'sistema_demandas_secret_key_2024')
 
 # Configuração do Flask-Login
 login_manager = LoginManager()
@@ -19,18 +19,19 @@ login_manager.login_view = 'login'
 STATUS_CHOICES = ['Em andamento', 'Concluído', 'Pendente', 'Cancelado']
 
 # Configuração do banco de dados PostgreSQL
-DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/postgres')
+DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://sistema_demandas_db_user:cP52Pdxr3o1tuCVk5TVs9B6MW5rEF6UR@dpg-cvuif46mcj7s73cetkrg-a/sistema_demandas_db')
 
 class User(UserMixin):
-    def __init__(self, id, username=None):
+    def __init__(self, id, username=None, is_superuser=False):
         self.id = id
         self.username = username
+        self.is_superuser = is_superuser
 
 @login_manager.user_loader
 def load_user(user_id):
     user = query_db('SELECT * FROM users WHERE id = %s', [user_id], one=True)
     if user:
-        return User(user['id'], user['username'])
+        return User(user['id'], user['username'], user['is_superuser'])
     return None
 
 def get_db():
@@ -57,7 +58,8 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS users (
                     id SERIAL PRIMARY KEY,
                     username TEXT NOT NULL UNIQUE,
-                    password TEXT NOT NULL
+                    password TEXT NOT NULL,
+                    is_superuser BOOLEAN DEFAULT FALSE
                 )
             ''')
             db.commit()
@@ -89,7 +91,7 @@ def login():
         user = query_db('SELECT * FROM users WHERE username = %s AND password = %s',
                        [username, password], one=True)
         if user:
-            login_user(User(user['id'], user['username']))
+            login_user(User(user['id'], user['username'], user['is_superuser']))
             return redirect(url_for('form'))
         flash('Usuário ou senha inválidos.')
     return render_template('login.html')
@@ -208,7 +210,43 @@ def export():
         flash(f'Erro ao exportar dados: {str(e)}')
         return redirect(url_for('report'))
 
+# Inicializa o banco de dados na inicialização do app
+init_db()
+
+# Cria um superuser padrão se não existir
+def create_superuser():
+    with app.app_context():
+        if not query_db('SELECT * FROM users WHERE username = %s', ['superadmin'], one=True):
+            query_db('INSERT INTO users (username, password, is_superuser) VALUES (%s, %s, %s)', 
+                    ['superadmin', 'superadmin123', True])
+
+create_superuser()
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        confirm_password = request.form['confirm_password']
+        
+        if password != confirm_password:
+            flash('As senhas não coincidem.')
+            return redirect(url_for('register'))
+            
+        existing_user = query_db('SELECT * FROM users WHERE username = %s', [username], one=True)
+        if existing_user:
+            flash('Nome de usuário já existe.')
+            return redirect(url_for('register'))
+            
+        query_db('INSERT INTO users (username, password, is_superuser) VALUES (%s, %s, %s)',
+                [username, password, False])
+        flash('Usuário criado com sucesso!')
+        return redirect(url_for('login'))
+        
+    return render_template('register.html')
+
+
+
 if __name__ == '__main__':
-    init_db()
     port = int(os.environ.get('PORT', 8000))
     app.run(host='0.0.0.0', port=port, debug=True)
