@@ -6,7 +6,7 @@ import csv
 import io
 import time
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 
 app = Flask(__name__, static_folder='static')
@@ -421,7 +421,10 @@ def report():
 
         # Obtém todos os filtros
         search_query = request.args.get('search', '').strip()
-        data_filter = request.args.get('data_filter', '').strip()
+        data_especifica = request.args.get('data_especifica', '').strip()
+        data_inicial = request.args.get('data_inicial', '').strip()
+        data_final = request.args.get('data_final', '').strip()
+        periodo = request.args.get('periodo', '').strip()
         local_filter = request.args.get('local_filter', '').strip()
         status_filter = request.args.get('status_filter', '').strip()
 
@@ -437,11 +440,49 @@ def report():
             count_query += condition
             params.extend(['%' + search_query + '%', '%' + search_query + '%'])
         
-        if data_filter:
-            condition = ' AND data = %s'
+        # Processa filtros de data
+        if periodo:
+            hoje = datetime.now().date()
+            if periodo == 'hoje':
+                condition = ' AND data = %s'
+                params.append(hoje)
+            elif periodo == 'ontem':
+                condition = ' AND data = %s'
+                params.append(hoje - timedelta(days=1))
+            elif periodo == 'semana':
+                condition = ' AND data >= %s'
+                params.append(hoje - timedelta(days=7))
+            elif periodo == 'mes':
+                condition = ' AND data >= %s'
+                params.append(hoje - timedelta(days=30))
+            elif periodo == 'trimestre':
+                condition = ' AND data >= %s'
+                params.append(hoje - timedelta(days=90))
+            elif periodo == 'semestre':
+                condition = ' AND data >= %s'
+                params.append(hoje - timedelta(days=180))
+            elif periodo == 'ano':
+                condition = ' AND data >= %s'
+                params.append(hoje - timedelta(days=365))
             query += condition
             count_query += condition
-            params.append(data_filter)
+        else:
+            if data_especifica:
+                condition = ' AND data = %s'
+                query += condition
+                count_query += condition
+                params.append(data_especifica)
+            else:
+                if data_inicial:
+                    condition = ' AND data >= %s'
+                    query += condition
+                    count_query += condition
+                    params.append(data_inicial)
+                if data_final:
+                    condition = ' AND data <= %s'
+                    query += condition
+                    count_query += condition
+                    params.append(data_final)
         
         filter_field = request.args.get('filter_field', '').strip()
         filter_value = request.args.get('filter_value', '').strip()
