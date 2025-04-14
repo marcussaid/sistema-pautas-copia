@@ -776,4 +776,64 @@ def update_user(user_id):
         return jsonify({
             'message': 'Usuário atualizado com sucesso',
             'user': {
-                'i
+                'id': user_id,
+                'username': username,
+                'is_superuser': is_superuser
+            }
+        })
+    except Exception as e:
+        log_system_event(f'Erro ao atualizar usuário: {str(e)}', 'error')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/admin/delete-user/<int:user_id>', methods=['POST'])
+@login_required
+def delete_user(user_id):
+    if not current_user.is_superuser:
+        flash('Acesso negado.')
+        return redirect(url_for('report'))
+        
+    if current_user.id == user_id:
+        flash('Você não pode excluir seu próprio usuário.')
+        return redirect(url_for('admin'))
+        
+    user = query_db('SELECT username FROM users WHERE id = %s', [user_id], one=True)
+    if user:
+        query_db('DELETE FROM users WHERE id = %s', [user_id])
+        log_system_event(f'Usuário excluído: {user["username"]}')
+        flash('Usuário excluído com sucesso!')
+    else:
+        flash('Usuário não encontrado.')
+        
+    return redirect(url_for('admin'))
+
+@app.route('/admin/settings', methods=['POST'])
+@login_required
+def update_settings():
+    if not current_user.is_superuser:
+        flash('Acesso negado.')
+        return redirect(url_for('report'))
+        
+    per_page = request.form.get('per_page', type=int)
+    session_timeout = request.form.get('session_timeout', type=int)
+    auto_backup = request.form.get('auto_backup')
+    
+    if per_page and session_timeout and auto_backup:
+        query_db('''
+            INSERT INTO system_settings (per_page, session_timeout, auto_backup)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (id) DO UPDATE 
+            SET per_page = EXCLUDED.per_page,
+                session_timeout = EXCLUDED.session_timeout,
+                auto_backup = EXCLUDED.auto_backup
+        ''', [per_page, session_timeout, auto_backup])
+        
+        log_system_event('Configurações do sistema atualizadas')
+        flash('Configurações atualizadas com sucesso!')
+    else:
+        flash('Por favor, preencha todos os campos.')
+    
+    return redirect(url_for('admin'))
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 8000))
+    app.run(host='0.0.0.0', port=port, debug=True)
