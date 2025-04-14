@@ -4,6 +4,7 @@ from psycopg2.extras import DictCursor
 import os
 import csv
 import io
+import time
 from datetime import datetime
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 
@@ -35,15 +36,40 @@ def load_user(user_id):
     return None
 
 def get_db():
-    conn = psycopg2.connect(DATABASE_URL)
-    conn.autocommit = True
-    return conn
+    try:
+        # Tenta estabelecer a conexão com retry
+        for attempt in range(3):
+            try:
+                conn = psycopg2.connect(
+                    DATABASE_URL,
+                    connect_timeout=10,
+                    keepalives=1,
+                    keepalives_idle=30,
+                    keepalives_interval=10,
+                    keepalives_count=5
+                )
+                conn.autocommit = True
+                print(f"Conexão estabelecida com sucesso no banco de dados (tentativa {attempt + 1})")
+                return conn
+            except psycopg2.OperationalError as e:
+                if attempt < 2:  # não printa no último retry
+                    print(f"Tentativa {attempt + 1} falhou. Tentando novamente... Erro: {e}")
+                    time.sleep(1)  # espera 1 segundo antes de tentar novamente
+                else:
+                    raise  # re-raise na última tentativa
+    except Exception as e:
+        print(f"Erro fatal ao conectar ao banco de dados: {e}")
+        raise
 
 def init_db():
+    print("Iniciando configuração do banco de dados...")
     with app.app_context():
-        db = get_db()
         try:
+            db = get_db()
             cur = db.cursor()
+            
+            # Criando tabela de registros
+            print("Criando/verificando tabela 'registros'...")
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS registros (
                     id SERIAL PRIMARY KEY,
@@ -56,6 +82,9 @@ def init_db():
                     data_ultima_edicao TIMESTAMP
                 )
             ''')
+            
+            # Criando tabela de usuários
+            print("Criando/verificando tabela 'users'...")
             cur.execute('''
                 CREATE TABLE IF NOT EXISTS users (
                     id SERIAL PRIMARY KEY,
@@ -64,22 +93,55 @@ def init_db():
                     is_superuser BOOLEAN DEFAULT FALSE
                 )
             ''')
+            
+            # Verificando se as tabelas foram criadas
+            cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
+            tables = cur.fetchall()
+            print("Tabelas existentes no banco:", [table[0] for table in tables])
+            
             db.commit()
+            print("Banco de dados inicializado com sucesso!")
+            
         except Exception as e:
-            print(f"Erro ao criar tabela: {e}")
+            print(f"Erro ao inicializar banco de dados: {e}")
+            raise
         finally:
-            db.close()
+            if 'db' in locals():
+                db.close()
+                print("Conexão com o banco de dados fechada.")
 
 def query_db(query, args=(), one=False):
-    db = get_db()
-    try:
-        cur = db.cursor(cursor_factory=DictCursor)
-        cur.execute(query, args)
-        rv = cur.fetchall()
-        cur.close()
-        return (rv[0] if rv else None) if one else rv
-    finally:
-        db.close()
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            print(f"Executando query (tentativa {attempt + 1}): {query[:100]}...")  # Mostra apenas os primeiros 100 caracteres
+            db = get_db()
+            cur = db.cursor(cursor_factory=DictCursor)
+            cur.execute(query, args)
+            
+            if query.strip().upper().startswith(('INSERT', 'UPDATE', 'DELETE')):
+                db.commit()
+                affected_rows = cur.rowcount
+                print(f"Query executada com sucesso. Linhas afetadas: {affected_rows}")
+                cur.close()
+                return affected_rows
+            else:
+                rv = cur.fetchall()
+                print(f"Query executada com sucesso. Resultados obtidos: {len(rv)}")
+                cur.close()
+                return (rv[0] if rv else None) if one else rv
+                
+        except psycopg2.OperationalError as e:
+            print(f"Erro operacional na tentativa {attempt + 1}: {e}")
+            if attempt == max_retries - 1:
+                raise
+            time.sleep(1)
+        except Exception as e:
+            print(f"Erro ao executar query: {e}")
+            raise
+        finally:
+            if 'db' in locals():
+                db.close()
 
 @app.route('/')
 def index():
