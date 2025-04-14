@@ -73,20 +73,41 @@
         <table class="min-w-full">
             <thead>
                 <tr>
-                    <th class="py-2 px-4 border-b">Data</th>
-                    <th class="py-2 px-4 border-b">Demanda</th>
-                    <th class="py-2 px-4 border-b">Assunto</th>
-                    <th class="py-2 px-4 border-b">Local</th>
-                    <th class="py-2 px-4 border-b">Status</th>
-                    <th class="py-2 px-4 border-b">Data de Registro</th>
-                    <th class="py-2 px-4 border-b">Último Editor</th>
-                    <th class="py-2 px-4 border-b">Data da Edição</th>
+                    {% for column, label in [
+                        ('data', 'Data'),
+                        ('demanda', 'Demanda'),
+                        ('assunto', 'Assunto'),
+                        ('local', 'Local'),
+                        ('status', 'Status'),
+                        ('data_registro', 'Data de Registro'),
+                        ('ultimo_editor', 'Último Editor'),
+                        ('data_ultima_edicao', 'Data da Edição')
+                    ] %}
+                    <th class="py-2 px-4 border-b">
+                        <a href="{{ url_for('report', 
+                                          sort=column,
+                                          direction='asc' if sort_column == column and sort_direction == 'desc' else 'desc',
+                                          search=search_query,
+                                          data_filter=request.args.get('data_filter', ''),
+                                          local_filter=request.args.get('local_filter', ''),
+                                          status_filter=request.args.get('status_filter', ''),
+                                          page=current_page) }}"
+                           class="flex items-center gap-1 text-gray-700 hover:text-gray-900">
+                            {{ label }}
+                            {% if sort_column == column %}
+                                <i class="fas fa-sort-{{ 'down' if sort_direction == 'desc' else 'up' }} ml-1"></i>
+                            {% else %}
+                                <i class="fas fa-sort text-gray-400 ml-1"></i>
+                            {% endif %}
+                        </a>
+                    </th>
+                    {% endfor %}
                     <th class="py-2 px-4 border-b">Ações</th>
                 </tr>
             </thead>
             <tbody>
                 {% for registro in registros %}
-                <tr>
+                <tr class="hover:bg-gray-50">
                     <td class="py-2 px-4 border-b">{{ registro['data'] }}</td>
                     <td class="py-2 px-4 border-b">{{ registro['demanda'] }}</td>
                     <td class="py-2 px-4 border-b">{{ registro['assunto'] }}</td>
@@ -97,9 +118,16 @@
                     <td class="py-2 px-4 border-b">{{ registro['data_ultima_edicao'].strftime('%d/%m/%Y %H:%M') if registro['data_ultima_edicao'] else 'N/A' }}</td>
                     <td class="py-2 px-4 border-b">
                         <div class="flex gap-2">
-                            <a href="{{ url_for('edit', id=registro['id']) }}" class="text-blue-500 hover:text-blue-700">Editar</a>
+                            <button onclick="showDetails({{ registro['id'] }})" class="text-blue-500 hover:text-blue-700">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <a href="{{ url_for('edit', id=registro['id']) }}" class="text-blue-500 hover:text-blue-700">
+                                <i class="fas fa-edit"></i>
+                            </a>
                             <form method="POST" action="{{ url_for('delete', id=registro['id']) }}" class="inline">
-                                <button type="submit" class="text-red-500 hover:text-red-700">Excluir</button>
+                                <button type="submit" class="text-red-500 hover:text-red-700">
+                                    <i class="fas fa-trash"></i>
+                                </button>
                             </form>
                         </div>
                     </td>
@@ -107,6 +135,75 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+
+    <!-- Paginação -->
+    {% if total_pages > 1 %}
+    <div class="mt-4 flex justify-center items-center gap-2">
+        <!-- Primeira página -->
+        <a href="{{ url_for('report', page=1, sort=sort_column, direction=sort_direction, 
+                           search=search_query, data_filter=request.args.get('data_filter', ''),
+                           local_filter=request.args.get('local_filter', ''),
+                           status_filter=request.args.get('status_filter', '')) }}"
+           class="px-3 py-1 border rounded {% if current_page == 1 %}bg-gray-100 text-gray-600{% else %}hover:bg-gray-100{% endif %}">
+            <i class="fas fa-angle-double-left"></i>
+        </a>
+        
+        <!-- Página anterior -->
+        <a href="{{ url_for('report', page=current_page-1, sort=sort_column, direction=sort_direction,
+                           search=search_query, data_filter=request.args.get('data_filter', ''),
+                           local_filter=request.args.get('local_filter', ''),
+                           status_filter=request.args.get('status_filter', '')) }}"
+           class="px-3 py-1 border rounded {% if current_page == 1 %}bg-gray-100 text-gray-600{% else %}hover:bg-gray-100{% endif %}"
+           {% if current_page == 1 %}disabled{% endif %}>
+            <i class="fas fa-angle-left"></i>
+        </a>
+
+        <!-- Números das páginas -->
+        {% for p in range(max(1, current_page-2), min(total_pages+1, current_page+3)) %}
+        <a href="{{ url_for('report', page=p, sort=sort_column, direction=sort_direction,
+                           search=search_query, data_filter=request.args.get('data_filter', ''),
+                           local_filter=request.args.get('local_filter', ''),
+                           status_filter=request.args.get('status_filter', '')) }}"
+           class="px-3 py-1 border rounded {% if current_page == p %}bg-blue-500 text-white{% else %}hover:bg-gray-100{% endif %}">
+            {{ p }}
+        </a>
+        {% endfor %}
+
+        <!-- Próxima página -->
+        <a href="{{ url_for('report', page=current_page+1, sort=sort_column, direction=sort_direction,
+                           search=search_query, data_filter=request.args.get('data_filter', ''),
+                           local_filter=request.args.get('local_filter', ''),
+                           status_filter=request.args.get('status_filter', '')) }}"
+           class="px-3 py-1 border rounded {% if current_page == total_pages %}bg-gray-100 text-gray-600{% else %}hover:bg-gray-100{% endif %}"
+           {% if current_page == total_pages %}disabled{% endif %}>
+            <i class="fas fa-angle-right"></i>
+        </a>
+
+        <!-- Última página -->
+        <a href="{{ url_for('report', page=total_pages, sort=sort_column, direction=sort_direction,
+                           search=search_query, data_filter=request.args.get('data_filter', ''),
+                           local_filter=request.args.get('local_filter', ''),
+                           status_filter=request.args.get('status_filter', '')) }}"
+           class="px-3 py-1 border rounded {% if current_page == total_pages %}bg-gray-100 text-gray-600{% else %}hover:bg-gray-100{% endif %}">
+            <i class="fas fa-angle-double-right"></i>
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal de Detalhes -->
+<div id="detailsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+    <div class="bg-white p-6 rounded-lg shadow-lg max-w-2xl w-full mx-4">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-bold">Detalhes da Demanda</h2>
+            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="modalContent" class="space-y-4">
+            <!-- Conteúdo será preenchido via JavaScript -->
+        </div>
     </div>
 </div>
 
@@ -118,5 +215,68 @@ function limparFiltros() {
     document.querySelector('select[name="status_filter"]').value = '';
     document.getElementById('filterForm').submit();
 }
+
+function showDetails(id) {
+    const modal = document.getElementById('detailsModal');
+    const content = document.getElementById('modalContent');
+    
+    // Buscar detalhes via fetch
+    fetch(`/registro/${id}`)
+        .then(response => response.json())
+        .then(data => {
+            content.innerHTML = `
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="font-bold">Data</p>
+                        <p>${data.data}</p>
+                    </div>
+                    <div>
+                        <p class="font-bold">Status</p>
+                        <p>${data.status}</p>
+                    </div>
+                    <div class="col-span-2">
+                        <p class="font-bold">Demanda</p>
+                        <p>${data.demanda}</p>
+                    </div>
+                    <div class="col-span-2">
+                        <p class="font-bold">Assunto</p>
+                        <p>${data.assunto}</p>
+                    </div>
+                    <div class="col-span-2">
+                        <p class="font-bold">Local</p>
+                        <p>${data.local || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <p class="font-bold">Criado por</p>
+                        <p>${data.criado_por || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <p class="font-bold">Data de Criação</p>
+                        <p>${data.data_registro}</p>
+                    </div>
+                    <div>
+                        <p class="font-bold">Último Editor</p>
+                        <p>${data.ultimo_editor || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <p class="font-bold">Última Edição</p>
+                        <p>${data.data_ultima_edicao || 'N/A'}</p>
+                    </div>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+        });
+}
+
+function closeModal() {
+    document.getElementById('detailsModal').classList.add('hidden');
+}
+
+// Fechar modal ao clicar fora dele
+document.getElementById('detailsModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal();
+    }
+});
 </script>
 {% endblock %}

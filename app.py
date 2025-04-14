@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response
+from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, jsonify
 import psycopg2
 from psycopg2.extras import DictCursor
 import os
@@ -296,10 +296,31 @@ def submit():
         print(f'Erro ao salvar o registro: {str(e)}')
         return redirect(url_for('form'))
 
+def get_sort_params():
+    """Obtém e valida os parâmetros de ordenação"""
+    valid_columns = ['data', 'demanda', 'assunto', 'local', 'status', 'data_registro', 'ultimo_editor', 'data_ultima_edicao']
+    sort_column = request.args.get('sort', 'data_registro')
+    sort_direction = request.args.get('direction', 'desc')
+    
+    if sort_column not in valid_columns:
+        sort_column = 'data_registro'
+    if sort_direction not in ['asc', 'desc']:
+        sort_direction = 'desc'
+        
+    return sort_column, sort_direction
+
 @app.route('/report', methods=['GET'])
 @login_required
 def report():
     try:
+        # Parâmetros de paginação
+        page = request.args.get('page', 1, type=int)
+        per_page = 10
+        offset = (page - 1) * per_page
+
+        # Obtém parâmetros de ordenação
+        sort_column, sort_direction = get_sort_params()
+
         # Obtém todos os filtros
         search_query = request.args.get('search', '').strip()
         data_filter = request.args.get('data_filter', '').strip()
@@ -308,32 +329,53 @@ def report():
 
         # Constrói a query base
         query = 'SELECT * FROM registros WHERE 1=1'
+        count_query = 'SELECT COUNT(*) FROM registros WHERE 1=1'
         params = []
 
         # Adiciona condições conforme os filtros
         if search_query:
-            query += ' AND (demanda ILIKE %s OR assunto ILIKE %s)'
+            condition = ' AND (demanda ILIKE %s OR assunto ILIKE %s)'
+            query += condition
+            count_query += condition
             params.extend(['%' + search_query + '%', '%' + search_query + '%'])
         
         if data_filter:
-            query += ' AND data = %s'
+            condition = ' AND data = %s'
+            query += condition
+            count_query += condition
             params.append(data_filter)
         
         if local_filter:
-            query += ' AND local ILIKE %s'
+            condition = ' AND local ILIKE %s'
+            query += condition
+            count_query += condition
             params.append('%' + local_filter + '%')
         
         if status_filter:
-            query += ' AND status = %s'
+            condition = ' AND status = %s'
+            query += condition
+            count_query += condition
             params.append(status_filter)
 
-        # Adiciona ordenação
-        query += ' ORDER BY data_registro DESC'
+        # Obtém o total de registros para paginação
+        total_registros = query_db(count_query, params, one=True)[0]
+        total_pages = (total_registros + per_page - 1) // per_page
+
+        # Adiciona ordenação e paginação
+        query += f' ORDER BY {sort_column} {sort_direction}'
+        query += ' LIMIT %s OFFSET %s'
+        params.extend([per_page, offset])
 
         # Executa a query
         registros = query_db(query, params)
         
-        return render_template('report.html', registros=registros, search_query=search_query)
+        return render_template('report.html',
+                             registros=registros,
+                             search_query=search_query,
+                             current_page=page,
+                             total_pages=total_pages,
+                             sort_column=sort_column,
+                             sort_direction=sort_direction)
     except Exception as e:
         flash(f'Erro ao carregar relatório: {str(e)}')
         return redirect(url_for('form'))
@@ -374,6 +416,27 @@ def edit(id):
 
     registro = query_db('SELECT * FROM registros WHERE id = %s', [id], one=True)
     return render_template('edit.html', registro=registro, status_list=STATUS_CHOICES)
+
+@app.route('/registro/<int:id>')
+@login_required
+def get_registro(id):
+    try:
+        registro = query_db('SELECT * FROM registros WHERE id = %s', [id], one=True)
+        if registro:
+            # Formata as datas para exibição
+            return jsonify({
+                'data': registro['data'].strftime('%d/%m/%Y'),
+                'demanda': registro['demanda'],
+                'assunto': registro['assunto'],
+                'local': registro['local'],
+                'status': registro['status'],
+                'data_registro': registro['data_registro'].strftime('%d/%m/%Y %H:%M'),
+                'ultimo_editor': registro['ultimo_editor'],
+                'data_ultima_edicao': registro['data_ultima_edicao'].strftime('%d/%m/%Y %H:%M') if registro['data_ultima_edicao'] else None
+            })
+        return jsonify({'error': 'Registro não encontrado'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/delete/<int:id>', methods=['POST'])
 @login_required
