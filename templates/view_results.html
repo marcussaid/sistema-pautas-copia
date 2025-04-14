@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-gray-800">Resultados da Pesquisa</h1>
+        <button onclick="window.print()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+            <i class="fas fa-print mr-2"></i>Imprimir
+        </button>
+    </div>
+
+    {% if registros %}
+        {% for registro in registros %}
+        <div class="mb-8 p-6 bg-white rounded-lg shadow-lg print:shadow-none print:border print:border-gray-200">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="col-span-2">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-2">Demanda #{{ loop.index }}</h2>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600">Data</p>
+                    <p class="font-medium">{{ registro['data'] }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600">Status</p>
+                    <p class="font-medium">{{ registro['status'] }}</p>
+                </div>
+                <div class="col-span-2">
+                    <p class="text-sm text-gray-600">Demanda</p>
+                    <p class="font-medium">{{ registro['demanda'] }}</p>
+                </div>
+                <div class="col-span-2">
+                    <p class="text-sm text-gray-600">Assunto</p>
+                    <p class="font-medium">{{ registro['assunto'] }}</p>
+                </div>
+                <div class="col-span-2">
+                    <p class="text-sm text-gray-600">Local</p>
+                    <p class="font-medium">{{ registro['local'] or 'N/A' }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600">Último Editor</p>
+                    <p class="font-medium">{{ registro['ultimo_editor'] or 'N/A' }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600">Data da Última Edição</p>
+                    <p class="font-medium">{{ registro['data_ultima_edicao'].strftime('%d/%m/%Y %H:%M') if registro['data_ultima_edicao'] else 'N/A' }}</p>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="text-center py-8">
+            <p class="text-gray-600">Nenhum registro encontrado.</p>
+        </div>
+    {% endif %}
+</div>
+
+<style>
+    @media print {
+        body {
+            font-size: 12pt;
+        }
+        .container {
+            max-width: none;
+            padding: 0;
+        }
+        button {
+            display: none;
+        }
+        @page {
+            margin: 2cm;
+        }
+    }
+</style>
+{% endblock %}

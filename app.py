@@ -7,7 +7,6 @@ import io
 import time
 from datetime import datetime
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from weasyprint import HTML
 
 app = Flask(__name__, static_folder='static')
 app.secret_key = os.environ.get('SECRET_KEY', 'sistema_demandas_secret_key_2024')
@@ -513,20 +512,14 @@ def export_csv():
         flash(f'Erro ao exportar dados: {str(e)}')
         return redirect(url_for('report'))
 
-@app.route('/export/pdf')
+@app.route('/view_results')
 @login_required
-def export_pdf():
+def view_results():
     try:
         registros = get_filtered_registros()
-        html_content = render_template('pdf_report.html', registros=registros, datetime=datetime)
-        pdf = HTML(string=html_content, base_url=request.host_url).write_pdf()
-        
-        response = make_response(pdf)
-        response.headers['Content-Type'] = 'application/pdf'
-        response.headers['Content-Disposition'] = 'attachment; filename=relatorio.pdf'
-        return response
+        return render_template('view_results.html', registros=registros)
     except Exception as e:
-        flash(f'Erro ao exportar PDF: {str(e)}')
+        flash(f'Erro ao carregar resultados: {str(e)}')
         return redirect(url_for('report'))
 
 # Verifica a conexão com o banco de dados antes de iniciar
