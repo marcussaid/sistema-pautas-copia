@@ -299,13 +299,40 @@ def submit():
 @app.route('/report', methods=['GET'])
 @login_required
 def report():
-    search_query = request.args.get('search', '').strip()
     try:
+        # Obtém todos os filtros
+        search_query = request.args.get('search', '').strip()
+        data_filter = request.args.get('data_filter', '').strip()
+        local_filter = request.args.get('local_filter', '').strip()
+        status_filter = request.args.get('status_filter', '').strip()
+
+        # Constrói a query base
+        query = 'SELECT * FROM registros WHERE 1=1'
+        params = []
+
+        # Adiciona condições conforme os filtros
         if search_query:
-            registros = query_db('SELECT * FROM registros WHERE demanda ILIKE %s OR assunto ILIKE %s ORDER BY data_registro DESC', 
-                               ['%' + search_query + '%', '%' + search_query + '%'])
-        else:
-            registros = query_db('SELECT * FROM registros ORDER BY data_registro DESC')
+            query += ' AND (demanda ILIKE %s OR assunto ILIKE %s)'
+            params.extend(['%' + search_query + '%', '%' + search_query + '%'])
+        
+        if data_filter:
+            query += ' AND data = %s'
+            params.append(data_filter)
+        
+        if local_filter:
+            query += ' AND local ILIKE %s'
+            params.append('%' + local_filter + '%')
+        
+        if status_filter:
+            query += ' AND status = %s'
+            params.append(status_filter)
+
+        # Adiciona ordenação
+        query += ' ORDER BY data_registro DESC'
+
+        # Executa a query
+        registros = query_db(query, params)
+        
         return render_template('report.html', registros=registros, search_query=search_query)
     except Exception as e:
         flash(f'Erro ao carregar relatório: {str(e)}')
@@ -362,7 +389,38 @@ def delete(id):
 @login_required
 def export():
     try:
-        registros = query_db('SELECT * FROM registros ORDER BY data_registro DESC')
+        # Obtém todos os filtros
+        search_query = request.args.get('search', '').strip()
+        data_filter = request.args.get('data_filter', '').strip()
+        local_filter = request.args.get('local_filter', '').strip()
+        status_filter = request.args.get('status_filter', '').strip()
+
+        # Constrói a query base
+        query = 'SELECT * FROM registros WHERE 1=1'
+        params = []
+
+        # Adiciona condições conforme os filtros
+        if search_query:
+            query += ' AND (demanda ILIKE %s OR assunto ILIKE %s)'
+            params.extend(['%' + search_query + '%', '%' + search_query + '%'])
+        
+        if data_filter:
+            query += ' AND data = %s'
+            params.append(data_filter)
+        
+        if local_filter:
+            query += ' AND local ILIKE %s'
+            params.append('%' + local_filter + '%')
+        
+        if status_filter:
+            query += ' AND status = %s'
+            params.append(status_filter)
+
+        # Adiciona ordenação
+        query += ' ORDER BY data_registro DESC'
+
+        # Executa a query
+        registros = query_db(query, params)
         si = io.StringIO()
         cw = csv.writer(si)
         cw.writerow(['Data', 'Demanda', 'Assunto', 'Local', 'Status', 'Data de Registro', 'Último Editor', 'Data da Última Edição'])
