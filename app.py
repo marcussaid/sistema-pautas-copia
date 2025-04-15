@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, jsonify, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, jsonify, send_from_directory, send_file
 import psycopg2
 from psycopg2.extras import DictCursor
 import os
@@ -6,16 +6,132 @@ import csv
 import io
 import time
 import random
+import json
+import uuid
+from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'xls', 'xlsx', 'mp3', 'wav'}
+
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
 app = Flask(__name__, static_folder='static')
 app.secret_key = os.environ.get('SECRET_KEY', 'sistema_demandas_secret_key_2024')
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def save_file(file):
+    """Salva o arquivo e retorna o nome único gerado"""
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        unique_filename = f"{uuid.uuid4()}_{filename}"
+        file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
+        file.save(file_path)
+        return unique_filename
+    return None
 
 @app.route('/favicon.ico')
 def favicon():
     return send_from_directory(os.path.join(app.root_path, 'static/img'),
                              'favicon.png', mimetype='image/png')
+
+@app.route('/upload_anexo/<int:registro_id>', methods=['POST'])
+@login_required
+def upload_anexo(registro_id):
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'Nenhum arquivo enviado'}), 400
+            
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'Nenhum arquivo selecionado'}), 400
+            
+        if not allowed_file(file.filename):
+            return jsonify({'error': 'Tipo de arquivo não permitido'}), 400
+            
+        filename = save_file(file)
+        if not filename:
+            return jsonify({'error': 'Erro ao salvar arquivo'}), 500
+            
+        # Recupera anexos atuais
+        registro = query_db('SELECT anexos FROM registros WHERE id = %s', [registro_id], one=True)
+        anexos = registro['anexos'] if registro and registro['anexos'] else []
+        
+        # Adiciona novo anexo
+        novo_anexo = {
+            'id': str(uuid.uuid4()),
+            'nome_original': secure_filename(file.filename),
+            'nome_arquivo': filename,
+            'data_upload': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'uploaded_by': current_user.username
+        }
+        anexos.append(novo_anexo)
+        
+        # Atualiza registro
+        query_db('UPDATE registros SET anexos = %s WHERE id = %s',
+                [json.dumps(anexos), registro_id])
+        
+        return jsonify({'message': 'Arquivo anexado com sucesso', 'anexo': novo_anexo})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/download_anexo/<int:registro_id>/<anexo_id>')
+@login_required
+def download_anexo(registro_id, anexo_id):
+    try:
+        registro = query_db('SELECT anexos FROM registros WHERE id = %s', [registro_id], one=True)
+        if not registro or not registro['anexos']:
+            return 'Anexo não encontrado', 404
+            
+        anexo = next((a for a in registro['anexos'] if a['id'] == anexo_id), None)
+        if not anexo:
+            return 'Anexo não encontrado', 404
+            
+        return send_from_directory(
+            UPLOAD_FOLDER,
+            anexo['nome_arquivo'],
+            as_attachment=True,
+            download_name=anexo['nome_original']
+        )
+        
+    except Exception as e:
+        return str(e), 500
+
+@app.route('/delete_anexo/<int:registro_id>/<anexo_id>', methods=['DELETE'])
+@login_required
+def delete_anexo(registro_id, anexo_id):
+    try:
+        registro = query_db('SELECT anexos FROM registros WHERE id = %s', [registro_id], one=True)
+        if not registro or not registro['anexos']:
+            return jsonify({'error': 'Anexo não encontrado'}), 404
+            
+        anexos = registro['anexos']
+        anexo = next((a for a in anexos if a['id'] == anexo_id), None)
+        if not anexo:
+            return jsonify({'error': 'Anexo não encontrado'}), 404
+            
+        # Remove arquivo do sistema de arquivos
+        try:
+            os.remove(os.path.join(UPLOAD_FOLDER, anexo['nome_arquivo']))
+        except OSError:
+            pass  # Ignora erro se arquivo não existir
+            
+        # Remove anexo da lista
+        anexos = [a for a in anexos if a['id'] != anexo_id]
+        
+        # Atualiza registro
+        query_db('UPDATE registros SET anexos = %s WHERE id = %s',
+                [json.dumps(anexos), registro_id])
+        
+        return jsonify({'message': 'Anexo removido com sucesso'})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # Configurações padrão do sistema
 DEFAULT_SETTINGS = {
@@ -174,9 +290,23 @@ def init_db():
                     status TEXT NOT NULL,
                     local TEXT,
                     direcionamentos TEXT,
-                    data_registro TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'America/Manaus')
+                    data_registro TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'America/Manaus'),
+                    anexos JSONB DEFAULT '[]'::jsonb
                 )
             ''')
+
+            # Verifica e adiciona a coluna anexos se não existir
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'registros' AND column_name = 'anexos'
+                    ) THEN
+                        ALTER TABLE registros ADD COLUMN anexos JSONB DEFAULT '[]'::jsonb;
+                    END IF;
+                END $$;
+            """)
             
             # Verifica e adiciona a coluna direcionamentos se não existir
             cur.execute("""
@@ -550,15 +680,39 @@ def edit(id):
         flash('Registro atualizado com sucesso!')
         return redirect(url_for('report'))
 
-    registro = query_db('SELECT * FROM registros WHERE id = %s', [id], one=True)
+    registro = query_db('''
+        SELECT *, 
+               COALESCE(anexos, '[]'::jsonb) as anexos 
+        FROM registros 
+        WHERE id = %s
+    ''', [id], one=True)
+    
+    if not registro:
+        flash('Registro não encontrado.')
+        return redirect(url_for('report'))
+
+    # Converte a string JSON para lista Python
+    if isinstance(registro['anexos'], str):
+        registro['anexos'] = json.loads(registro['anexos'])
+    
     return render_template('edit.html', registro=registro, status_list=STATUS_CHOICES)
 
 @app.route('/registro/<int:id>')
 @login_required
 def get_registro(id):
     try:
-        registro = query_db('SELECT * FROM registros WHERE id = %s', [id], one=True)
+        registro = query_db('''
+            SELECT *,
+                   COALESCE(anexos, '[]'::jsonb) as anexos
+            FROM registros 
+            WHERE id = %s
+        ''', [id], one=True)
+        
         if registro:
+            # Converte a string JSON para lista Python se necessário
+            if isinstance(registro['anexos'], str):
+                registro['anexos'] = json.loads(registro['anexos'])
+                
             # Formata as datas para exibição
             return jsonify({
                 'data': registro['data'].strftime('%d/%m/%Y'),
@@ -568,7 +722,8 @@ def get_registro(id):
                 'status': registro['status'],
                 'data_registro': registro['data_registro'].strftime('%d/%m/%Y %H:%M'),
                 'ultimo_editor': registro['ultimo_editor'],
-                'data_ultima_edicao': registro['data_ultima_edicao'].strftime('%d/%m/%Y %H:%M') if registro['data_ultima_edicao'] else None
+                'data_ultima_edicao': registro['data_ultima_edicao'].strftime('%d/%m/%Y %H:%M') if registro['data_ultima_edicao'] else None,
+                'anexos': registro['anexos']
             })
         return jsonify({'error': 'Registro não encontrado'}), 404
     except Exception as e:

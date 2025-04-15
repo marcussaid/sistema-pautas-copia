@@ -13,7 +13,7 @@
         {% endif %}
     {% endwith %}
 
-    <form method="POST" class="max-w-lg">
+    <form method="POST" class="max-w-lg mb-8">
         <div class="mb-4">
             <label class="block text-gray-700 font-bold mb-2" for="data">Data</label>
             <input type="date" id="data" name="data" required class="w-full px-3 py-2 border rounded" 
@@ -57,5 +57,152 @@
             </a>
         </div>
     </form>
+
+    <!-- Seção de Anexos -->
+    <div class="max-w-lg">
+        <h2 class="text-xl font-bold mb-4">Anexos</h2>
+        
+        <!-- Upload de Arquivo -->
+        <div class="mb-6 p-4 border rounded">
+            <h3 class="font-bold mb-2">Adicionar Anexo</h3>
+            <div class="flex items-center gap-2">
+                <input type="file" id="fileInput" class="hidden" accept=".pdf,.png,.jpg,.jpeg,.gif,.doc,.docx,.xls,.xlsx,.mp3,.wav">
+                <button onclick="document.getElementById('fileInput').click()" 
+                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    <i class="fas fa-upload mr-2"></i>Selecionar Arquivo
+                </button>
+                <span id="selectedFileName" class="text-sm text-gray-600"></span>
+            </div>
+            <div class="mt-2">
+                <button onclick="uploadFile()" id="uploadButton" 
+                        class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded hidden">
+                    <i class="fas fa-check mr-2"></i>Enviar Arquivo
+                </button>
+            </div>
+        </div>
+
+        <!-- Lista de Anexos -->
+        <div id="anexosList" class="space-y-2">
+            {% if registro.anexos %}
+                {% for anexo in registro.anexos %}
+                <div class="flex items-center justify-between p-2 bg-gray-50 rounded" id="anexo-{{ anexo.id }}">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-file text-gray-600"></i>
+                        <span class="text-sm">{{ anexo.nome_original }}</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="downloadAnexo('{{ anexo.id }}')" 
+                                class="text-blue-600 hover:text-blue-800" title="Download">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        <button onclick="deleteAnexo('{{ anexo.id }}')" 
+                                class="text-red-600 hover:text-red-800" title="Excluir">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-gray-600 text-sm">Nenhum anexo disponível.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const fileName = e.target.files[0]?.name || '';
+            document.getElementById('selectedFileName').textContent = fileName;
+            document.getElementById('uploadButton').classList.toggle('hidden', !fileName);
+        });
+
+        function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/upload_anexo/{{ registro.id }}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                // Adiciona novo anexo à lista
+                const anexosList = document.getElementById('anexosList');
+                const novoAnexo = document.createElement('div');
+                novoAnexo.className = 'flex items-center justify-between p-2 bg-gray-50 rounded';
+                novoAnexo.id = `anexo-${data.anexo.id}`;
+                novoAnexo.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-file text-gray-600"></i>
+                        <span class="text-sm">${data.anexo.nome_original}</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="downloadAnexo('${data.anexo.id}')" 
+                                class="text-blue-600 hover:text-blue-800" title="Download">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        <button onclick="deleteAnexo('${data.anexo.id}')" 
+                                class="text-red-600 hover:text-red-800" title="Excluir">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+
+                if (anexosList.firstChild.tagName === 'P') {
+                    anexosList.innerHTML = '';
+                }
+                anexosList.appendChild(novoAnexo);
+
+                // Limpa o input
+                fileInput.value = '';
+                document.getElementById('selectedFileName').textContent = '';
+                document.getElementById('uploadButton').classList.add('hidden');
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Erro ao enviar arquivo');
+            });
+        }
+
+        function downloadAnexo(anexoId) {
+            window.location.href = `/download_anexo/{{ registro.id }}/${anexoId}`;
+        }
+
+        function deleteAnexo(anexoId) {
+            if (!confirm('Tem certeza que deseja excluir este anexo?')) return;
+
+            fetch(`/delete_anexo/{{ registro.id }}/${anexoId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                const elemento = document.getElementById(`anexo-${anexoId}`);
+                elemento.remove();
+
+                // Se não houver mais anexos, mostra a mensagem
+                const anexosList = document.getElementById('anexosList');
+                if (!anexosList.children.length) {
+                    anexosList.innerHTML = '<p class="text-gray-600 text-sm">Nenhum anexo disponível.</p>';
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Erro ao excluir anexo');
+            });
+        }
+    </script>
 </div>
 {% endblock %}

@@ -391,8 +391,9 @@ function viewDetails(id) {
     fetch(`/registro/${id}`)
         .then(response => response.json())
         .then(data => {
-            const content = [
-                '<div class="grid grid-cols-2 gap-4">',
+            // Constrói a seção principal de informações
+            const mainInfo = [
+                '<div class="grid grid-cols-2 gap-4 mb-6">',
                 '<div>',
                 '<p class="text-sm text-gray-600">Data</p>',
                 '<p class="font-medium">' + (data.data || 'N/A') + '</p>',
@@ -423,6 +424,36 @@ function viewDetails(id) {
                 '</div>',
                 '</div>'
             ].join('');
+
+            // Constrói a seção de anexos
+            let anexosHtml = '';
+            if (data.anexos && data.anexos.length > 0) {
+                const anexosList = data.anexos.map(anexo => `
+                    <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-file text-gray-600"></i>
+                            <span class="text-sm">${anexo.nome_original}</span>
+                        </div>
+                        <a href="/download_anexo/${data.id}/${anexo.id}" 
+                           class="text-blue-600 hover:text-blue-800" 
+                           title="Download">
+                            <i class="fas fa-download"></i>
+                        </a>
+                    </div>
+                `).join('');
+
+                anexosHtml = `
+                    <div class="border-t pt-4 mt-4">
+                        <h3 class="text-lg font-bold mb-3">Anexos</h3>
+                        <div class="space-y-2">
+                            ${anexosList}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Combina as seções
+            const content = mainInfo + anexosHtml;
             document.getElementById('modalContent').innerHTML = content;
             document.getElementById('detailsModal').classList.remove('hidden');
         })
