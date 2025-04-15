@@ -140,14 +140,11 @@ DEFAULT_SETTINGS = {
     'auto_backup': 'daily'
 }
 
-@app.route('/migrate_db')
-@login_required
-def migrate_db():
+def ensure_anexos_column():
+    """Garante que a coluna anexos existe na tabela registros"""
+    db = get_db()
+    cur = db.cursor()
     try:
-        db = get_db()
-        cur = db.cursor()
-        
-        # Adiciona a coluna anexos se não existir
         cur.execute("""
             DO $$
             BEGIN
@@ -159,14 +156,19 @@ def migrate_db():
                 END IF;
             END $$;
         """)
-        
         db.commit()
+    finally:
+        cur.close()
+        db.close()
+
+@app.route('/migrate_db')
+@login_required
+def migrate_db():
+    try:
+        ensure_anexos_column()
         return jsonify({'message': 'Migração concluída com sucesso!'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-    finally:
-        if 'db' in locals():
-            db.close()
 
 @app.route('/health')
 def health_check():
@@ -550,6 +552,9 @@ def submit():
             flash('Por favor, preencha todos os campos.')
             return redirect(url_for('form'))
 
+        # Garante que a coluna anexos existe
+        ensure_anexos_column()
+
         # Processa os anexos
         anexos = []
         if 'files' in request.files:
@@ -710,6 +715,9 @@ def report():
 @app.route('/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
 def edit(id):
+    # Garante que a coluna anexos existe
+    ensure_anexos_column()
+
     if request.method == 'POST':
         data = request.form.get('data', '').strip()
         demanda = request.form.get('demanda', '').strip()
@@ -731,6 +739,7 @@ def edit(id):
             flash('Por favor, preencha todos os campos.')
             return redirect(url_for('edit', id=id))
 
+        # Atualiza os dados básicos
         query = '''
             UPDATE registros 
             SET data = %s, demanda = %s, assunto = %s, status = %s, local = %s, direcionamentos = %s,
@@ -742,6 +751,7 @@ def edit(id):
         flash('Registro atualizado com sucesso!')
         return redirect(url_for('report'))
 
+    # Busca o registro
     registro = query_db('''
         SELECT *, 
                COALESCE(anexos, '[]'::jsonb) as anexos 
