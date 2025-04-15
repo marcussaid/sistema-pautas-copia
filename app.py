@@ -12,11 +12,11 @@ from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 
-UPLOAD_FOLDER = 'uploads'
+UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'xls', 'xlsx', 'mp3', 'wav'}
 
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+# Garante que o diretório de uploads existe
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app = Flask(__name__, static_folder='static')
 app.secret_key = os.environ.get('SECRET_KEY', 'sistema_demandas_secret_key_2024')
