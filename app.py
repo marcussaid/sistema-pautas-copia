@@ -290,8 +290,7 @@ def init_db():
                     status TEXT NOT NULL,
                     local TEXT,
                     direcionamentos TEXT,
-                    data_registro TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'America/Manaus'),
-                    anexos JSONB DEFAULT '[]'::jsonb
+                    data_registro TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'America/Manaus')
                 )
             ''')
 
@@ -304,6 +303,21 @@ def init_db():
                         WHERE table_name = 'registros' AND column_name = 'anexos'
                     ) THEN
                         ALTER TABLE registros ADD COLUMN anexos JSONB DEFAULT '[]'::jsonb;
+                    END IF;
+                END $$;
+            """)
+
+            # Verifica se a coluna anexos existe e tem o tipo correto
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'registros' AND column_name = 'anexos'
+                        AND data_type != 'jsonb'
+                    ) THEN
+                        ALTER TABLE registros ALTER COLUMN anexos TYPE JSONB USING anexos::jsonb;
+                        ALTER TABLE registros ALTER COLUMN anexos SET DEFAULT '[]'::jsonb;
                     END IF;
                 END $$;
             """)
