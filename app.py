@@ -773,6 +773,9 @@ def edit(id):
 @login_required
 def get_registro(id):
     try:
+        # Garante que a coluna anexos existe
+        ensure_anexos_column()
+        
         registro = query_db('''
             SELECT *,
                    COALESCE(anexos, '[]'::jsonb) as anexos
@@ -787,6 +790,7 @@ def get_registro(id):
                 
             # Formata as datas para exibição
             return jsonify({
+                'id': registro['id'],
                 'data': registro['data'].strftime('%d/%m/%Y'),
                 'demanda': registro['demanda'],
                 'assunto': registro['assunto'],
