@@ -13,7 +13,7 @@
         {% endif %}
     {% endwith %}
 
-    <form method="POST" action="{{ url_for('submit') }}" class="max-w-lg" id="demandaForm">
+    <form method="POST" action="{{ url_for('submit') }}" class="max-w-lg mb-8" id="demandaForm" enctype="multipart/form-data">
         <div class="mb-4">
             <label class="block text-gray-700 font-bold mb-2" for="data">Data</label>
             <input type="date" id="data" name="data" required class="w-full px-3 py-2 border rounded bg-white" 
@@ -48,6 +48,22 @@
                 <option value="Cancelado">Cancelado</option>
             </select>
         </div>
+        <!-- Seção de Anexos -->
+        <div class="mb-6 p-4 border rounded">
+            <h3 class="font-bold mb-2">Anexos</h3>
+            <div class="flex items-center gap-2">
+                <input type="file" id="fileInput" name="files" multiple 
+                       class="hidden" accept=".pdf,.png,.jpg,.jpeg,.gif,.doc,.docx,.xls,.xlsx,.mp3,.wav">
+                <button type="button" onclick="document.getElementById('fileInput').click()" 
+                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    <i class="fas fa-upload mr-2"></i>Selecionar Arquivos
+                </button>
+            </div>
+            <div id="selectedFiles" class="mt-2 space-y-2">
+                <!-- Lista de arquivos selecionados será exibida aqui -->
+            </div>
+        </div>
+
         <div class="flex items-center justify-between">
             <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
                 Salvar
@@ -60,6 +76,47 @@
 </div>
 
 <script>
+// Manipulação de arquivos selecionados
+document.getElementById('fileInput').addEventListener('change', function(e) {
+    const fileList = e.target.files;
+    const selectedFilesDiv = document.getElementById('selectedFiles');
+    selectedFilesDiv.innerHTML = '';
+
+    Array.from(fileList).forEach((file, index) => {
+        const fileDiv = document.createElement('div');
+        fileDiv.className = 'flex items-center justify-between p-2 bg-gray-50 rounded';
+        fileDiv.innerHTML = `
+            <div class="flex items-center gap-2">
+                <i class="fas fa-file text-gray-600"></i>
+                <span class="text-sm">${file.name}</span>
+            </div>
+            <button type="button" onclick="removeFile(${index})" 
+                    class="text-red-600 hover:text-red-800" title="Remover">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        selectedFilesDiv.appendChild(fileDiv);
+    });
+});
+
+function removeFile(index) {
+    const fileInput = document.getElementById('fileInput');
+    const dt = new DataTransfer();
+    const { files } = fileInput;
+
+    for (let i = 0; i < files.length; i++) {
+        if (i !== index) {
+            dt.items.add(files[i]);
+        }
+    }
+
+    fileInput.files = dt.files;
+    
+    // Dispara o evento change para atualizar a lista visual
+    const event = new Event('change');
+    fileInput.dispatchEvent(event);
+}
+
 // Define a data máxima como hoje e preenche com a data atual
 const today = new Date().toISOString().split('T')[0];
 const dataInput = document.getElementById('data');

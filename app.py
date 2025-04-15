@@ -502,19 +502,39 @@ def submit():
             return redirect(url_for('form'))
 
         local = request.form.get('local', '').strip()
-        
         direcionamentos = request.form.get('direcionamentos', '').strip()
         
         if not all([data, demanda, assunto, status, local]):
             flash('Por favor, preencha todos os campos.')
             return redirect(url_for('form'))
 
+        # Processa os anexos
+        anexos = []
+        if 'files' in request.files:
+            files = request.files.getlist('files')
+            for file in files:
+                if file and file.filename:
+                    filename = save_file(file)
+                    if filename:
+                        anexo = {
+                            'id': str(uuid.uuid4()),
+                            'nome_original': secure_filename(file.filename),
+                            'nome_arquivo': filename,
+                            'data_upload': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                            'uploaded_by': current_user.username
+                        }
+                        anexos.append(anexo)
+
+        # Insere o registro com os anexos
         query = '''
             INSERT INTO registros 
-            (data, demanda, assunto, status, local, direcionamentos, ultimo_editor, data_ultima_edicao) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP AT TIME ZONE 'America/Manaus')
+            (data, demanda, assunto, status, local, direcionamentos, ultimo_editor, data_ultima_edicao, anexos) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP AT TIME ZONE 'America/Manaus', %s)
         '''
-        query_db(query, [data, demanda, assunto, status, local, direcionamentos, current_user.username])
+        query_db(query, [
+            data, demanda, assunto, status, local, direcionamentos, 
+            current_user.username, json.dumps(anexos)
+        ])
         
         flash('Registro salvo com sucesso!')
         return redirect(url_for('report'))
