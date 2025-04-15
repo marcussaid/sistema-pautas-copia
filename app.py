@@ -421,7 +421,6 @@ def report():
 
         # Obtém todos os filtros
         search_query = request.args.get('search', '').strip()
-        data_especifica = request.args.get('data_especifica', '').strip()
         data_inicial = request.args.get('data_inicial', '').strip()
         data_final = request.args.get('data_final', '').strip()
         periodo = request.args.get('periodo', '').strip()
@@ -467,22 +466,16 @@ def report():
             query += condition
             count_query += condition
         else:
-            if data_especifica:
-                condition = ' AND data = %s'
+            if data_inicial:
+                condition = ' AND data >= %s'
                 query += condition
                 count_query += condition
-                params.append(data_especifica)
-            else:
-                if data_inicial:
-                    condition = ' AND data >= %s'
-                    query += condition
-                    count_query += condition
-                    params.append(data_inicial)
-                if data_final:
-                    condition = ' AND data <= %s'
-                    query += condition
-                    count_query += condition
-                    params.append(data_final)
+                params.append(data_inicial)
+            if data_final:
+                condition = ' AND data <= %s'
+                query += condition
+                count_query += condition
+                params.append(data_final)
         
         filter_field = request.args.get('filter_field', '').strip()
         filter_value = request.args.get('filter_value', '').strip()

@@ -4,6 +4,9 @@
     <div class="flex flex-col md:flex-row justify-between items-center mb-6">
         <h1 class="text-2xl font-bold mb-4 md:mb-0">Relatório de Demandas</h1>
         <div class="flex gap-2">
+            <button onclick="printAllFiltered()" class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded">
+                <i class="fas fa-print mr-2"></i>Imprimir Filtrados
+            </button>
             <a href="{{ url_for('export_csv') }}" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
                 <i class="fas fa-file-csv mr-2"></i>Exportar CSV
             </a>
@@ -17,12 +20,7 @@
     <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
         <form method="GET" action="{{ url_for('report') }}" class="space-y-4">
             <!-- Filtros de Data -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Data Específica</label>
-                    <input type="date" name="data_especifica" class="w-full px-3 py-2 border rounded"
-                           value="{{ request.args.get('data_especifica', '') }}">
-                </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Data Inicial</label>
                     <input type="date" name="data_inicial" class="w-full px-3 py-2 border rounded"
@@ -248,9 +246,14 @@
     <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-white">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-bold">Detalhes do Registro</h3>
-            <button onclick="closeModal()" class="text-gray-600 hover:text-gray-800">
-                <i class="fas fa-times"></i>
-            </button>
+            <div class="flex gap-2">
+                <button onclick="printDetails()" class="text-blue-600 hover:text-blue-800" title="Imprimir">
+                    <i class="fas fa-print"></i>
+                </button>
+                <button onclick="closeModal()" class="text-gray-600 hover:text-gray-800" title="Fechar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
         </div>
         <div id="modalContent" class="space-y-4">
             <!-- Conteúdo será preenchido via JavaScript -->
@@ -259,6 +262,131 @@
 </div>
 
 <script>
+function printAllFiltered() {
+    const registros = Array.from(document.querySelectorAll('table tbody tr')).map(row => {
+        return {
+            data: row.cells[0].textContent,
+            demanda: row.cells[1].textContent,
+            assunto: row.cells[2].textContent,
+            local: row.cells[3].textContent,
+            status: row.cells[4].textContent.trim()
+        };
+    });
+
+    const printWindow = window.open('', '_blank');
+    const currentDate = new Date().toLocaleString();
+    const filtrosAtivos = [];
+    
+    // Captura filtros ativos
+    const searchValue = document.querySelector('input[name="search"]').value;
+    const dataInicial = document.querySelector('input[name="data_inicial"]').value;
+    const dataFinal = document.querySelector('input[name="data_final"]').value;
+    const localFilter = document.querySelector('input[name="local_filter"]').value;
+    const statusFilter = document.querySelector('select[name="status_filter"]').value;
+
+    if (searchValue) filtrosAtivos.push(`Busca: ${searchValue}`);
+    if (dataInicial) filtrosAtivos.push(`Data Inicial: ${dataInicial}`);
+    if (dataFinal) filtrosAtivos.push(`Data Final: ${dataFinal}`);
+    if (localFilter) filtrosAtivos.push(`Local: ${localFilter}`);
+    if (statusFilter) filtrosAtivos.push(`Status: ${statusFilter}`);
+
+    const filtrosHtml = filtrosAtivos.length > 0 
+        ? `<div class="mb-4 text-sm text-gray-600">Filtros aplicados: ${filtrosAtivos.join(' | ')}</div>`
+        : '';
+
+    const registrosHtml = registros.map(reg => `
+        <div class="border-b py-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <p class="text-sm text-gray-600">Data</p>
+                    <p class="font-medium">${reg.data}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600">Status</p>
+                    <p class="font-medium">${reg.status}</p>
+                </div>
+                <div class="col-span-2">
+                    <p class="text-sm text-gray-600">Local</p>
+                    <p class="font-medium">${reg.local}</p>
+                </div>
+                <div class="col-span-2">
+                    <p class="text-sm text-gray-600">Demanda</p>
+                    <p class="font-medium">${reg.demanda}</p>
+                </div>
+                <div class="col-span-2">
+                    <p class="text-sm text-gray-600">Assunto</p>
+                    <p class="font-medium">${reg.assunto}</p>
+                </div>
+            </div>
+        </div>
+    `).join('');
+
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Relatório de Demandas</title>
+            <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+            <style>
+                @media print {
+                    body { padding: 20px; }
+                    .print-header { margin-bottom: 20px; }
+                    .page-break { page-break-after: always; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="print-header">
+                <h1 class="text-2xl font-bold mb-2">Relatório de Demandas</h1>
+                <p class="text-gray-600 mb-2">Gerado em: ${currentDate}</p>
+                ${filtrosHtml}
+            </div>
+            <div class="registros">
+                ${registrosHtml}
+            </div>
+        </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+    }, 250);
+}
+
+function printDetails() {
+    const modalContent = document.getElementById('modalContent').innerHTML;
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Detalhes da Demanda</title>
+            <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+            <style>
+                @media print {
+                    body { padding: 20px; }
+                    .print-header { margin-bottom: 20px; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="print-header">
+                <h1 class="text-2xl font-bold mb-4">Detalhes da Demanda</h1>
+                <p class="text-gray-600">Impresso em: ${new Date().toLocaleString()}</p>
+            </div>
+            ${modalContent}
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+    }, 250);
+}
+
 function viewDetails(id) {
     fetch(`/registro/${id}`)
         .then(response => response.json())
