@@ -851,7 +851,7 @@ def export_csv():
         registros = get_filtered_registros()
         si = io.StringIO()
         cw = csv.writer(si)
-        cw.writerow(['Data', 'Demanda', 'Assunto', 'Local', 'Status', 'Data de Registro', 'Último Editor', 'Data da Última Edição'])
+        cw.writerow(['Data', 'Demanda', 'Assunto', 'Local', 'Direcionamentos', 'Status', 'Data de Registro', 'Último Editor', 'Data da Última Edição'])
         for registro in registros:
             data_ultima_edicao = registro['data_ultima_edicao'].strftime('%d/%m/%Y %H:%M') if registro['data_ultima_edicao'] else 'N/A'
             data_registro = registro['data_registro'].strftime('%d/%m/%Y %H:%M')
@@ -860,6 +860,7 @@ def export_csv():
                 registro['demanda'],
                 registro['assunto'],
                 registro['local'] or 'N/A',
+                registro['direcionamentos'] or 'N/A',
                 registro['status'],
                 data_registro,
                 registro['ultimo_editor'] or 'N/A',
