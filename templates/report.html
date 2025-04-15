@@ -153,6 +153,17 @@
                         </a>
                     </th>
                     <th class="py-2 px-4 border-b text-left">
+                        <a href="{{ url_for('report', sort='direcionamentos', direction='asc' if sort_column == 'direcionamentos' and sort_direction == 'desc' else 'desc', **request.args) }}"
+                           class="flex items-center">
+                            Direcionamentos
+                            {% if sort_column == 'direcionamentos' %}
+                                <i class="fas fa-sort-{{ 'up' if sort_direction == 'asc' else 'down' }} ml-1"></i>
+                            {% else %}
+                                <i class="fas fa-sort ml-1 text-gray-400"></i>
+                            {% endif %}
+                        </a>
+                    </th>
+                    <th class="py-2 px-4 border-b text-left">
                         <a href="{{ url_for('report', sort='status', direction='asc' if sort_column == 'status' and sort_direction == 'desc' else 'desc', **request.args) }}"
                            class="flex items-center">
                             Status
@@ -173,6 +184,7 @@
                     <td class="py-2 px-4 border-b">{{ registro['demanda'] }}</td>
                     <td class="py-2 px-4 border-b">{{ registro['assunto'] }}</td>
                     <td class="py-2 px-4 border-b">{{ registro['local'] }}</td>
+                    <td class="py-2 px-4 border-b">{{ registro['direcionamentos'] or 'N/A' }}</td>
                     <td class="py-2 px-4 border-b">
                         <span class="px-2 py-1 rounded text-sm
                             {% if registro['status'] == 'Concluído' %}
@@ -269,7 +281,8 @@ function printAllFiltered() {
             demanda: row.cells[1].textContent,
             assunto: row.cells[2].textContent,
             local: row.cells[3].textContent,
-            status: row.cells[4].textContent.trim()
+            direcionamentos: row.cells[4].textContent,
+            status: row.cells[5].textContent.trim()
         };
     });
 
@@ -316,6 +329,10 @@ function printAllFiltered() {
                 <div class="col-span-2">
                     <p class="text-sm text-gray-600">Assunto</p>
                     <p class="font-medium">${reg.assunto}</p>
+                </div>
+                <div class="col-span-2">
+                    <p class="text-sm text-gray-600">Direcionamentos</p>
+                    <p class="font-medium">${reg.direcionamentos || 'N/A'}</p>
                 </div>
             </div>
         </div>
@@ -413,6 +430,10 @@ function viewDetails(id) {
                 '<div class="col-span-2">',
                 '<p class="text-sm text-gray-600">Assunto</p>',
                 '<p class="font-medium">' + (data.assunto || 'N/A') + '</p>',
+                '</div>',
+                '<div class="col-span-2">',
+                '<p class="text-sm text-gray-600">Direcionamentos</p>',
+                '<p class="font-medium">' + (data.direcionamentos || 'N/A') + '</p>',
                 '</div>',
                 '<div>',
                 '<p class="text-sm text-gray-600">Último Editor</p>',
