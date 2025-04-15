@@ -140,6 +140,34 @@ DEFAULT_SETTINGS = {
     'auto_backup': 'daily'
 }
 
+@app.route('/migrate_db')
+@login_required
+def migrate_db():
+    try:
+        db = get_db()
+        cur = db.cursor()
+        
+        # Adiciona a coluna anexos se não existir
+        cur.execute("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'registros' AND column_name = 'anexos'
+                ) THEN
+                    ALTER TABLE registros ADD COLUMN anexos JSONB DEFAULT '[]'::jsonb;
+                END IF;
+            END $$;
+        """)
+        
+        db.commit()
+        return jsonify({'message': 'Migração concluída com sucesso!'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if 'db' in locals():
+            db.close()
+
 @app.route('/health')
 def health_check():
     try:
