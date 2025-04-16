@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, jsonify, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, jsonify, send_from_directory, send_file
 import psycopg2
 from psycopg2.extras import DictCursor
 import os
@@ -6,16 +6,295 @@ import csv
 import io
 import time
 import random
+import json
+import uuid
+from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+import pandas as pd
+
+UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
+CSV_FOLDER = os.path.join(UPLOAD_FOLDER, 'csv')
+os.makedirs(CSV_FOLDER, exist_ok=True)
+
+def validate_csv_data(df):
+    """Valida os dados do CSV"""
+    errors = []
+    
+    # Verifica colunas obrigatórias
+    required_columns = ['Data', 'Demanda', 'Assunto', 'Local', 'Status']
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        errors.append(f"Colunas obrigatórias faltando: {', '.join(missing_columns)}")
+        return errors
+    
+    # Valida status
+    invalid_status = df[~df['Status'].isin(STATUS_CHOICES)]['Status'].unique()
+    if len(invalid_status) > 0:
+        errors.append(f"Status inválidos encontrados: {', '.join(invalid_status)}")
+    
+    # Valida datas
+    try:
+        pd.to_datetime(df['Data'], format='%d/%m/%Y')
+    except ValueError as e:
+        errors.append("Formato de data inválido. Use DD/MM/AAAA")
+    
+    # Valida campos obrigatórios não vazios
+    for col in ['Demanda', 'Assunto', 'Local']:
+        empty_rows = df[df[col].isna()].index.tolist()
+        if empty_rows:
+            errors.append(f"Campo {col} vazio nas linhas: {', '.join(map(str, empty_rows))}")
+    
+    return errors
+
+def process_csv_data(df):
+    """Processa e formata os dados do CSV para inserção"""
+    # Converte datas para o formato correto
+    df['Data'] = pd.to_datetime(df['Data'], format='%d/%m/%Y')
+    
+    # Garante que todas as colunas necessárias existem
+    if 'Direcionamentos' not in df.columns:
+        df['Direcionamentos'] = None
+    
+    # Preenche valores nulos
+    df = df.fillna('')
+    
+    return df
+
+@app.route('/import_csv', methods=['GET', 'POST'])
+@login_required
+def import_csv():
+    if request.method == 'POST':
+        if 'confirm' in request.form:
+            # Processa o arquivo temporário salvo
+            temp_file = os.path.join(CSV_FOLDER, 'temp_import.csv')
+            if not os.path.exists(temp_file):
+                flash('Nenhum arquivo para importar. Faça o upload novamente.')
+                return redirect(url_for('import_csv'))
+            
+            try:
+                df = pd.read_csv(temp_file)
+                df = process_csv_data(df)
+                
+                # Insere os registros no banco
+                for _, row in df.iterrows():
+                    query = '''
+                        INSERT INTO registros 
+                        (data, demanda, assunto, local, direcionamentos, status, 
+                         ultimo_editor, data_ultima_edicao, anexos)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, 
+                                CURRENT_TIMESTAMP AT TIME ZONE 'America/Manaus', '[]'::jsonb)
+                    '''
+                    query_db(query, [
+                        row['Data'].strftime('%Y-%m-%d'),
+                        row['Demanda'],
+                        row['Assunto'],
+                        row['Local'],
+                        row['Direcionamentos'],
+                        row['Status'],
+                        current_user.username
+                    ])
+                
+                # Remove o arquivo temporário
+                os.remove(temp_file)
+                
+                flash(f'{len(df)} registros importados com sucesso!')
+                return redirect(url_for('report'))
+                
+            except Exception as e:
+                flash(f'Erro ao importar dados: {str(e)}')
+                return redirect(url_for('import_csv'))
+        
+        if 'file' not in request.files:
+            flash('Nenhum arquivo selecionado')
+            return redirect(url_for('import_csv'))
+            
+        file = request.files['file']
+        if file.filename == '':
+            flash('Nenhum arquivo selecionado')
+            return redirect(url_for('import_csv'))
+            
+        if not file.filename.endswith('.csv'):
+            flash('Arquivo deve ser do tipo CSV')
+            return redirect(url_for('import_csv'))
+            
+        try:
+            # Salva o arquivo temporariamente
+            temp_file = os.path.join(CSV_FOLDER, 'temp_import.csv')
+            file.save(temp_file)
+            
+            # Lê o CSV com pandas
+            df = pd.read_csv(temp_file)
+            
+            # Valida os dados
+            if request.form.get('validate_data'):
+                errors = validate_csv_data(df)
+                if errors:
+                    os.remove(temp_file)
+                    flash('Erros encontrados no arquivo:')
+                    for error in errors:
+                        flash(error)
+                    return redirect(url_for('import_csv'))
+            
+            # Se solicitado preview, mostra os primeiros registros
+            if request.form.get('preview'):
+                preview_data = [df.columns.tolist()] + df.values.tolist()
+                return render_template('import_csv.html', preview_data=preview_data)
+            
+            # Se não precisar de preview, processa diretamente
+            df = process_csv_data(df)
+            
+            # Insere os registros no banco
+            for _, row in df.iterrows():
+                query = '''
+                    INSERT INTO registros 
+                    (data, demanda, assunto, local, direcionamentos, status, 
+                     ultimo_editor, data_ultima_edicao, anexos)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, 
+                            CURRENT_TIMESTAMP AT TIME ZONE 'America/Manaus', '[]'::jsonb)
+                '''
+                query_db(query, [
+                    row['Data'].strftime('%Y-%m-%d'),
+                    row['Demanda'],
+                    row['Assunto'],
+                    row['Local'],
+                    row['Direcionamentos'],
+                    row['Status'],
+                    current_user.username
+                ])
+            
+            # Remove o arquivo temporário
+            os.remove(temp_file)
+            
+            flash(f'{len(df)} registros importados com sucesso!')
+            return redirect(url_for('report'))
+            
+        except Exception as e:
+            flash(f'Erro ao processar arquivo: {str(e)}')
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+            return redirect(url_for('import_csv'))
+    
+    return render_template('import_csv.html')
+ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'xls', 'xlsx', 'mp3', 'wav'}
+
+# Garante que o diretório de uploads existe
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app = Flask(__name__, static_folder='static')
 app.secret_key = os.environ.get('SECRET_KEY', 'sistema_demandas_secret_key_2024')
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def save_file(file):
+    """Salva o arquivo e retorna o nome único gerado"""
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        unique_filename = f"{uuid.uuid4()}_{filename}"
+        file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
+        file.save(file_path)
+        return unique_filename
+    return None
 
 @app.route('/favicon.ico')
 def favicon():
     return send_from_directory(os.path.join(app.root_path, 'static/img'),
                              'favicon.png', mimetype='image/png')
+
+@app.route('/upload_anexo/<int:registro_id>', methods=['POST'])
+@login_required
+def upload_anexo(registro_id):
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'Nenhum arquivo enviado'}), 400
+            
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'Nenhum arquivo selecionado'}), 400
+            
+        if not allowed_file(file.filename):
+            return jsonify({'error': 'Tipo de arquivo não permitido'}), 400
+            
+        filename = save_file(file)
+        if not filename:
+            return jsonify({'error': 'Erro ao salvar arquivo'}), 500
+            
+        # Recupera anexos atuais
+        registro = query_db('SELECT anexos FROM registros WHERE id = %s', [registro_id], one=True)
+        anexos = registro['anexos'] if registro and registro['anexos'] else []
+        
+        # Adiciona novo anexo
+        novo_anexo = {
+            'id': str(uuid.uuid4()),
+            'nome_original': secure_filename(file.filename),
+            'nome_arquivo': filename,
+            'data_upload': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'uploaded_by': current_user.username
+        }
+        anexos.append(novo_anexo)
+        
+        # Atualiza registro
+        query_db('UPDATE registros SET anexos = %s WHERE id = %s',
+                [json.dumps(anexos), registro_id])
+        
+        return jsonify({'message': 'Arquivo anexado com sucesso', 'anexo': novo_anexo})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/download_anexo/<int:registro_id>/<anexo_id>')
+@login_required
+def download_anexo(registro_id, anexo_id):
+    try:
+        registro = query_db('SELECT anexos FROM registros WHERE id = %s', [registro_id], one=True)
+        if not registro or not registro['anexos']:
+            return 'Anexo não encontrado', 404
+            
+        anexo = next((a for a in registro['anexos'] if a['id'] == anexo_id), None)
+        if not anexo:
+            return 'Anexo não encontrado', 404
+            
+        return send_from_directory(
+            UPLOAD_FOLDER,
+            anexo['nome_arquivo'],
+            as_attachment=True,
+            download_name=anexo['nome_original']
+        )
+        
+    except Exception as e:
+        return str(e), 500
+
+@app.route('/delete_anexo/<int:registro_id>/<anexo_id>', methods=['DELETE'])
+@login_required
+def delete_anexo(registro_id, anexo_id):
+    try:
+        registro = query_db('SELECT anexos FROM registros WHERE id = %s', [registro_id], one=True)
+        if not registro or not registro['anexos']:
+            return jsonify({'error': 'Anexo não encontrado'}), 404
+            
+        anexos = registro['anexos']
+        anexo = next((a for a in anexos if a['id'] == anexo_id), None)
+        if not anexo:
+            return jsonify({'error': 'Anexo não encontrado'}), 404
+            
+        # Remove arquivo do sistema de arquivos
+        try:
+            os.remove(os.path.join(UPLOAD_FOLDER, anexo['nome_arquivo']))
+        except OSError:
+            pass  # Ignora erro se arquivo não existir
+            
+        # Remove anexo da lista
+        anexos = [a for a in anexos if a['id'] != anexo_id]
+        
+        # Atualiza registro
+        query_db('UPDATE registros SET anexos = %s WHERE id = %s',
+                [json.dumps(anexos), registro_id])
+        
+        return jsonify({'message': 'Anexo removido com sucesso'})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # Configurações padrão do sistema
 DEFAULT_SETTINGS = {
@@ -23,6 +302,36 @@ DEFAULT_SETTINGS = {
     'session_timeout': 60,  # minutos
     'auto_backup': 'daily'
 }
+
+def ensure_anexos_column():
+    """Garante que a coluna anexos existe na tabela registros"""
+    db = get_db()
+    cur = db.cursor()
+    try:
+        cur.execute("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'registros' AND column_name = 'anexos'
+                ) THEN
+                    ALTER TABLE registros ADD COLUMN anexos JSONB DEFAULT '[]'::jsonb;
+                END IF;
+            END $$;
+        """)
+        db.commit()
+    finally:
+        cur.close()
+        db.close()
+
+@app.route('/migrate_db')
+@login_required
+def migrate_db():
+    try:
+        ensure_anexos_column()
+        return jsonify({'message': 'Migração concluída com sucesso!'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/health')
 def health_check():
@@ -177,6 +486,34 @@ def init_db():
                     data_registro TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'America/Manaus')
                 )
             ''')
+
+            # Verifica e adiciona a coluna anexos se não existir
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'registros' AND column_name = 'anexos'
+                    ) THEN
+                        ALTER TABLE registros ADD COLUMN anexos JSONB DEFAULT '[]'::jsonb;
+                    END IF;
+                END $$;
+            """)
+
+            # Verifica se a coluna anexos existe e tem o tipo correto
+            cur.execute("""
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'registros' AND column_name = 'anexos'
+                        AND data_type != 'jsonb'
+                    ) THEN
+                        ALTER TABLE registros ALTER COLUMN anexos TYPE JSONB USING anexos::jsonb;
+                        ALTER TABLE registros ALTER COLUMN anexos SET DEFAULT '[]'::jsonb;
+                    END IF;
+                END $$;
+            """)
             
             # Verifica e adiciona a coluna direcionamentos se não existir
             cur.execute("""
@@ -372,19 +709,42 @@ def submit():
             return redirect(url_for('form'))
 
         local = request.form.get('local', '').strip()
-        
         direcionamentos = request.form.get('direcionamentos', '').strip()
         
         if not all([data, demanda, assunto, status, local]):
             flash('Por favor, preencha todos os campos.')
             return redirect(url_for('form'))
 
+        # Garante que a coluna anexos existe
+        ensure_anexos_column()
+
+        # Processa os anexos
+        anexos = []
+        if 'files' in request.files:
+            files = request.files.getlist('files')
+            for file in files:
+                if file and file.filename:
+                    filename = save_file(file)
+                    if filename:
+                        anexo = {
+                            'id': str(uuid.uuid4()),
+                            'nome_original': secure_filename(file.filename),
+                            'nome_arquivo': filename,
+                            'data_upload': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                            'uploaded_by': current_user.username
+                        }
+                        anexos.append(anexo)
+
+        # Insere o registro com os anexos
         query = '''
             INSERT INTO registros 
-            (data, demanda, assunto, status, local, direcionamentos, ultimo_editor, data_ultima_edicao) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP AT TIME ZONE 'America/Manaus')
+            (data, demanda, assunto, status, local, direcionamentos, ultimo_editor, data_ultima_edicao, anexos) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP AT TIME ZONE 'America/Manaus', %s)
         '''
-        query_db(query, [data, demanda, assunto, status, local, direcionamentos, current_user.username])
+        query_db(query, [
+            data, demanda, assunto, status, local, direcionamentos, 
+            current_user.username, json.dumps(anexos)
+        ])
         
         flash('Registro salvo com sucesso!')
         return redirect(url_for('report'))
@@ -421,7 +781,6 @@ def report():
 
         # Obtém todos os filtros
         search_query = request.args.get('search', '').strip()
-        data_especifica = request.args.get('data_especifica', '').strip()
         data_inicial = request.args.get('data_inicial', '').strip()
         data_final = request.args.get('data_final', '').strip()
         periodo = request.args.get('periodo', '').strip()
@@ -467,22 +826,16 @@ def report():
             query += condition
             count_query += condition
         else:
-            if data_especifica:
-                condition = ' AND data = %s'
+            if data_inicial:
+                condition = ' AND data >= %s'
                 query += condition
                 count_query += condition
-                params.append(data_especifica)
-            else:
-                if data_inicial:
-                    condition = ' AND data >= %s'
-                    query += condition
-                    count_query += condition
-                    params.append(data_inicial)
-                if data_final:
-                    condition = ' AND data <= %s'
-                    query += condition
-                    count_query += condition
-                    params.append(data_final)
+                params.append(data_inicial)
+            if data_final:
+                condition = ' AND data <= %s'
+                query += condition
+                count_query += condition
+                params.append(data_final)
         
         filter_field = request.args.get('filter_field', '').strip()
         filter_value = request.args.get('filter_value', '').strip()
@@ -525,6 +878,9 @@ def report():
 @app.route('/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
 def edit(id):
+    # Garante que a coluna anexos existe
+    ensure_anexos_column()
+
     if request.method == 'POST':
         data = request.form.get('data', '').strip()
         demanda = request.form.get('demanda', '').strip()
@@ -546,6 +902,7 @@ def edit(id):
             flash('Por favor, preencha todos os campos.')
             return redirect(url_for('edit', id=id))
 
+        # Atualiza os dados básicos
         query = '''
             UPDATE registros 
             SET data = %s, demanda = %s, assunto = %s, status = %s, local = %s, direcionamentos = %s,
@@ -557,17 +914,46 @@ def edit(id):
         flash('Registro atualizado com sucesso!')
         return redirect(url_for('report'))
 
-    registro = query_db('SELECT * FROM registros WHERE id = %s', [id], one=True)
+    # Busca o registro
+    registro = query_db('''
+        SELECT *, 
+               COALESCE(anexos, '[]'::jsonb) as anexos 
+        FROM registros 
+        WHERE id = %s
+    ''', [id], one=True)
+    
+    if not registro:
+        flash('Registro não encontrado.')
+        return redirect(url_for('report'))
+
+    # Converte a string JSON para lista Python
+    if isinstance(registro['anexos'], str):
+        registro['anexos'] = json.loads(registro['anexos'])
+    
     return render_template('edit.html', registro=registro, status_list=STATUS_CHOICES)
 
 @app.route('/registro/<int:id>')
 @login_required
 def get_registro(id):
     try:
-        registro = query_db('SELECT * FROM registros WHERE id = %s', [id], one=True)
+        # Garante que a coluna anexos existe
+        ensure_anexos_column()
+        
+        registro = query_db('''
+            SELECT *,
+                   COALESCE(anexos, '[]'::jsonb) as anexos
+            FROM registros 
+            WHERE id = %s
+        ''', [id], one=True)
+        
         if registro:
+            # Converte a string JSON para lista Python se necessário
+            if isinstance(registro['anexos'], str):
+                registro['anexos'] = json.loads(registro['anexos'])
+                
             # Formata as datas para exibição
             return jsonify({
+                'id': registro['id'],
                 'data': registro['data'].strftime('%d/%m/%Y'),
                 'demanda': registro['demanda'],
                 'assunto': registro['assunto'],
@@ -575,7 +961,8 @@ def get_registro(id):
                 'status': registro['status'],
                 'data_registro': registro['data_registro'].strftime('%d/%m/%Y %H:%M'),
                 'ultimo_editor': registro['ultimo_editor'],
-                'data_ultima_edicao': registro['data_ultima_edicao'].strftime('%d/%m/%Y %H:%M') if registro['data_ultima_edicao'] else None
+                'data_ultima_edicao': registro['data_ultima_edicao'].strftime('%d/%m/%Y %H:%M') if registro['data_ultima_edicao'] else None,
+                'anexos': registro['anexos']
             })
         return jsonify({'error': 'Registro não encontrado'}), 404
     except Exception as e:
@@ -627,7 +1014,7 @@ def export_csv():
         registros = get_filtered_registros()
         si = io.StringIO()
         cw = csv.writer(si)
-        cw.writerow(['Data', 'Demanda', 'Assunto', 'Local', 'Status', 'Data de Registro', 'Último Editor', 'Data da Última Edição'])
+        cw.writerow(['Data', 'Demanda', 'Assunto', 'Local', 'Direcionamentos', 'Status', 'Data de Registro', 'Último Editor', 'Data da Última Edição'])
         for registro in registros:
             data_ultima_edicao = registro['data_ultima_edicao'].strftime('%d/%m/%Y %H:%M') if registro['data_ultima_edicao'] else 'N/A'
             data_registro = registro['data_registro'].strftime('%d/%m/%Y %H:%M')
@@ -636,6 +1023,7 @@ def export_csv():
                 registro['demanda'],
                 registro['assunto'],
                 registro['local'] or 'N/A',
+                registro['direcionamentos'] or 'N/A',
                 registro['status'],
                 data_registro,
                 registro['ultimo_editor'] or 'N/A',

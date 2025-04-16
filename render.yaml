@@ -8,8 +8,14 @@ services:
     healthCheckTimeout: 100
     healthCheckInterval: 15
     autoDeploy: true
+    disk:
+      name: uploads
+      mountPath: /uploads
+      sizeGB: 1
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.12
       - key: PORT
         value: 8000
+      - key: UPLOAD_FOLDER
+        value: /uploads

@@ -4,4 +4,8 @@ Flask-SQLAlchemy
 Flask-Login
 Flask-Migrate
 Flask-Flash
-Pandas
+pandas
+psycopg2-binary
+Werkzeug
+numpy
+gunicorn
