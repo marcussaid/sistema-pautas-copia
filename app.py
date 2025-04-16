@@ -28,7 +28,14 @@ STATUS_CHOICES = ['Em andamento', 'Concluído', 'Pendente', 'Cancelado']
 # Configurações de upload
 UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
 CSV_FOLDER = os.path.join(UPLOAD_FOLDER, 'csv')
+ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'xls', 'xlsx', 'mp3', 'wav'}
+
+# Garante que os diretórios existem
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(CSV_FOLDER, exist_ok=True)
+
+# Configuração do banco de dados PostgreSQL
+DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://sistema_demandas_db_user:cP52Pdxr3o1tuCVk5TVs9B6MW5rEF6UR@dpg-cvuif46mcj7s73cetkrg-a/sistema_demandas_db')
 
 def validate_csv_data(df):
     """Valida os dados do CSV"""
@@ -190,6 +197,12 @@ def import_csv():
     
     return render_template('import_csv.html')
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'xls', 'xlsx', 'mp3', 'wav'}
+
+# Garante que o diretório de uploads existe
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+app = Flask(__name__, static_folder='static')
+app.secret_key = os.environ.get('SECRET_KEY', 'sistema_demandas_secret_key_2024')
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -361,6 +374,14 @@ def health_check():
             'timestamp': datetime.now().isoformat(),
             'error': str(e)
         }), 500
+
+# Configuração do Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+# Lista de status disponíveis
+STATUS_CHOICES = ['Em andamento', 'Concluído', 'Pendente', 'Cancelado']
 
 # Configuração do banco de dados PostgreSQL
 DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://sistema_demandas_db_user:cP52Pdxr3o1tuCVk5TVs9B6MW5rEF6UR@dpg-cvuif46mcj7s73cetkrg-a/sistema_demandas_db')
@@ -836,11 +857,14 @@ def report():
                 count_query += condition
                 params.append(data_final)
         
-        if local_filter:
-            condition = ' AND local ILIKE %s'
+        filter_field = request.args.get('filter_field', '').strip()
+        filter_value = request.args.get('filter_value', '').strip()
+        
+        if filter_field and filter_value:
+            condition = f' AND {filter_field} ILIKE %s'
             query += condition
             count_query += condition
-            params.append('%' + local_filter + '%')
+            params.append('%' + filter_value + '%')
         
         if status_filter:
             condition = ' AND status = %s'
@@ -866,10 +890,8 @@ def report():
                              current_page=page,
                              total_pages=total_pages,
                              sort_column=sort_column,
-                             sort_direction=sort_direction,
-                             status_choices=STATUS_CHOICES)
+                             sort_direction=sort_direction)
     except Exception as e:
-        print(f'Erro ao carregar relatório: {str(e)}')
         flash(f'Erro ao carregar relatório: {str(e)}')
         return redirect(url_for('form'))
 

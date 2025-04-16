@@ -88,7 +88,7 @@
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1 transition-colors">Status</label>
                     <select name="status_filter" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-colors">
                         <option value="">Todos</option>
-                        {% for status in status_choices %}
+                        {% for status in ['Em andamento', 'Concluído', 'Pendente', 'Cancelado'] %}
                             <option value="{{ status }}" {% if request.args.get('status_filter') == status %}selected{% endif %}>
                                 {{ status }}
                             </option>
@@ -204,24 +204,24 @@
                             {{ registro['status'] }}
                         </span>
                     </td>
-                    <td class="py-2 px-4 border-b dark:border-gray-600 text-center">
-                        <div class="flex justify-center gap-2">
-                            <button onclick="viewDetails({{ registro['id'] }})" 
-                                    class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors" title="Ver Detalhes">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            <a href="{{ url_for('edit', id=registro['id']) }}" 
-                               class="text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300 transition-colors" title="Editar">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            <form method="POST" action="{{ url_for('delete', id=registro['id']) }}" 
-                                  class="inline" onsubmit="return confirm('Tem certeza que deseja excluir este registro?');">
-                                <button type="submit" class="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors" title="Excluir">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </form>
-                        </div>
-                    </td>
+                     <td class="py-2 px-4 border-b dark:border-gray-600 text-center">
+                         <div class="flex justify-center gap-2">
+                             <button onclick="viewDetails({{ registro['id'] }})" 
+                                     class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors" title="Ver Detalhes">
+                                 <i class="fas fa-eye"></i>
+                             </button>
+                             <a href="{{ url_for('edit', id=registro['id']) }}" 
+                                class="text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300 transition-colors" title="Editar">
+                                 <i class="fas fa-edit"></i>
+                             </a>
+                             <form method="POST" action="{{ url_for('delete', id=registro['id']) }}" 
+                                   class="inline" onsubmit="return confirm('Tem certeza que deseja excluir este registro?');">
+                                 <button type="submit" class="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors" title="Excluir">
+                                     <i class="fas fa-trash"></i>
+                                 </button>
+                             </form>
+                         </div>
+                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -258,118 +258,27 @@
     {% endif %}
 </div>
 
-<!-- Modal de Detalhes -->
-<div id="detailsModal" class="fixed inset-0 bg-gray-600 dark:bg-gray-900 bg-opacity-50 hidden overflow-y-auto h-full w-full">
-    <div class="relative top-20 mx-auto p-5 border border-gray-300 dark:border-gray-600 w-11/12 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-white dark:bg-gray-800 transition-colors">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-bold text-gray-900 dark:text-white transition-colors">Detalhes do Registro</h3>
-            <div class="flex gap-2">
-                <button onclick="printDetails()" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors" title="Imprimir">
-                    <i class="fas fa-print"></i>
-                </button>
-                <button onclick="closeModal()" class="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 transition-colors" title="Fechar">
-                    <i class="fas fa-times"></i>
-                </button>
+    <!-- Modal de Detalhes -->
+    <div id="detailsModal" class="fixed inset-0 bg-gray-600 dark:bg-gray-900 bg-opacity-50 hidden overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border border-gray-300 dark:border-gray-600 w-11/12 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-white dark:bg-gray-800 transition-colors">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white transition-colors">Detalhes do Registro</h3>
+                <div class="flex gap-2">
+                    <button onclick="printDetails()" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors" title="Imprimir">
+                        <i class="fas fa-print"></i>
+                    </button>
+                    <button onclick="closeModal()" class="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 transition-colors" title="Fechar">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="modalContent" class="space-y-4 text-gray-900 dark:text-white transition-colors">
+                <!-- Conteúdo será preenchido via JavaScript -->
             </div>
         </div>
-        <div id="modalContent" class="space-y-4 text-gray-900 dark:text-white transition-colors">
-            <!-- Conteúdo será preenchido via JavaScript -->
-        </div>
     </div>
-</div>
 
 <script>
-function viewDetails(id) {
-    fetch(`/registro/${id}`)
-        .then(response => response.json())
-        .then(data => {
-            // Constrói a seção principal de informações
-            const mainInfo = [
-                '<div class="grid grid-cols-2 gap-4 mb-6">',
-                '<div>',
-                '<p class="text-sm text-gray-600">Data</p>',
-                '<p class="font-medium">' + (data.data || 'N/A') + '</p>',
-                '</div>',
-                '<div>',
-                '<p class="text-sm text-gray-600">Status</p>',
-                '<p class="font-medium">' + (data.status || 'N/A') + '</p>',
-                '</div>',
-                '<div class="col-span-2">',
-                '<p class="text-sm text-gray-600">Local</p>',
-                '<p class="font-medium">' + (data.local || 'N/A') + '</p>',
-                '</div>',
-                '<div class="col-span-2">',
-                '<p class="text-sm text-gray-600">Demanda</p>',
-                '<p class="font-medium">' + (data.demanda || 'N/A') + '</p>',
-                '</div>',
-                '<div class="col-span-2">',
-                '<p class="text-sm text-gray-600">Assunto</p>',
-                '<p class="font-medium">' + (data.assunto || 'N/A') + '</p>',
-                '</div>',
-                '<div class="col-span-2">',
-                '<p class="text-sm text-gray-600">Direcionamentos</p>',
-                '<p class="font-medium">' + (data.direcionamentos || 'N/A') + '</p>',
-                '</div>',
-                '<div>',
-                '<p class="text-sm text-gray-600">Último Editor</p>',
-                '<p class="font-medium">' + (data.ultimo_editor || 'N/A') + '</p>',
-                '</div>',
-                '<div>',
-                '<p class="text-sm text-gray-600">Última Edição</p>',
-                '<p class="font-medium">' + (data.data_ultima_edicao || 'N/A') + '</p>',
-                '</div>',
-                '</div>'
-            ].join('');
-
-            // Constrói a seção de anexos
-            let anexosHtml = '';
-            if (data.anexos && data.anexos.length > 0) {
-                const anexosList = data.anexos.map(anexo => `
-                    <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <div class="flex items-center gap-2">
-                            <i class="fas fa-file text-gray-600"></i>
-                            <span class="text-sm">${anexo.nome_original}</span>
-                        </div>
-                        <a href="/download_anexo/${data.id}/${anexo.id}" 
-                           class="text-blue-600 hover:text-blue-800" 
-                           title="Download">
-                            <i class="fas fa-download"></i>
-                        </a>
-                    </div>
-                `).join('');
-
-                anexosHtml = `
-                    <div class="border-t pt-4 mt-4">
-                        <h3 class="text-lg font-bold mb-3">Anexos</h3>
-                        <div class="space-y-2">
-                            ${anexosList}
-                        </div>
-                    </div>
-                `;
-            }
-
-            // Combina as seções
-            const content = mainInfo + anexosHtml;
-            document.getElementById('modalContent').innerHTML = content;
-            document.getElementById('detailsModal').classList.remove('hidden');
-        })
-        .catch(error => {
-            console.error('Erro:', error);
-            alert('Erro ao carregar os detalhes do registro');
-        });
-}
-
-function closeModal() {
-    document.getElementById('detailsModal').classList.add('hidden');
-}
-
-// Fecha o modal quando clicar fora dele
-document.getElementById('detailsModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeModal();
-    }
-});
-
 function printAllFiltered() {
     const registros = Array.from(document.querySelectorAll('table tbody tr')).map(row => {
         return {
@@ -501,5 +410,96 @@ function printDetails() {
         printWindow.close();
     }, 250);
 }
+
+function viewDetails(id) {
+    fetch(`/registro/${id}`)
+        .then(response => response.json())
+        .then(data => {
+            // Constrói a seção principal de informações
+            const mainInfo = [
+                '<div class="grid grid-cols-2 gap-4 mb-6">',
+                '<div>',
+                '<p class="text-sm text-gray-600">Data</p>',
+                '<p class="font-medium">' + (data.data || 'N/A') + '</p>',
+                '</div>',
+                '<div>',
+                '<p class="text-sm text-gray-600">Status</p>',
+                '<p class="font-medium">' + (data.status || 'N/A') + '</p>',
+                '</div>',
+                '<div class="col-span-2">',
+                '<p class="text-sm text-gray-600">Local</p>',
+                '<p class="font-medium">' + (data.local || 'N/A') + '</p>',
+                '</div>',
+                '<div class="col-span-2">',
+                '<p class="text-sm text-gray-600">Demanda</p>',
+                '<p class="font-medium">' + (data.demanda || 'N/A') + '</p>',
+                '</div>',
+                '<div class="col-span-2">',
+                '<p class="text-sm text-gray-600">Assunto</p>',
+                '<p class="font-medium">' + (data.assunto || 'N/A') + '</p>',
+                '</div>',
+                '<div class="col-span-2">',
+                '<p class="text-sm text-gray-600">Direcionamentos</p>',
+                '<p class="font-medium">' + (data.direcionamentos || 'N/A') + '</p>',
+                '</div>',
+                '<div>',
+                '<p class="text-sm text-gray-600">Último Editor</p>',
+                '<p class="font-medium">' + (data.ultimo_editor || 'N/A') + '</p>',
+                '</div>',
+                '<div>',
+                '<p class="text-sm text-gray-600">Última Edição</p>',
+                '<p class="font-medium">' + (data.data_ultima_edicao || 'N/A') + '</p>',
+                '</div>',
+                '</div>'
+            ].join('');
+
+            // Constrói a seção de anexos
+            let anexosHtml = '';
+            if (data.anexos && data.anexos.length > 0) {
+                const anexosList = data.anexos.map(anexo => `
+                    <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-file text-gray-600"></i>
+                            <span class="text-sm">${anexo.nome_original}</span>
+                        </div>
+                        <a href="/download_anexo/${data.id}/${anexo.id}" 
+                           class="text-blue-600 hover:text-blue-800" 
+                           title="Download">
+                            <i class="fas fa-download"></i>
+                        </a>
+                    </div>
+                `).join('');
+
+                anexosHtml = `
+                    <div class="border-t pt-4 mt-4">
+                        <h3 class="text-lg font-bold mb-3">Anexos</h3>
+                        <div class="space-y-2">
+                            ${anexosList}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Combina as seções
+            const content = mainInfo + anexosHtml;
+            document.getElementById('modalContent').innerHTML = content;
+            document.getElementById('detailsModal').classList.remove('hidden');
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao carregar os detalhes do registro');
+        });
+}
+
+function closeModal() {
+    document.getElementById('detailsModal').classList.add('hidden');
+}
+
+// Fecha o modal quando clicar fora dele
+document.getElementById('detailsModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal();
+    }
+});
 </script>
 {% endblock %}
