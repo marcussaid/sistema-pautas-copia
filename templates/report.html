@@ -1,7 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="container mx-auto px-4 py-8 bg-gray-50">
-    <!-- Todo o conteúdo HTML existente -->
     <div class="flex flex-col md:flex-row justify-between items-center mb-6">
         <h1 class="text-2xl font-bold mb-4 md:mb-0 text-gray-900">Relatório de Demandas</h1>
         <div class="flex gap-2">
@@ -11,7 +10,7 @@
             <a href="{{ url_for('export_csv') }}" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
                 <i class="fas fa-file-export mr-2"></i>Exportar CSV
             </a>
-            <a href="{{ url_for('import_csv') }}" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded">
+            <a href="{{ url_for('importar_csv') }}" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded">
                 <i class="fas fa-file-import mr-2"></i>Importar CSV
             </a>
             <a href="{{ url_for('form') }}" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
@@ -257,29 +256,9 @@
         </div>
     </div>
     {% endif %}
-
-    <!-- Modal de Detalhes -->
-    <div id="detailsModal" class="fixed inset-0 bg-gray-600 hidden overflow-y-auto h-full w-full">
-        <div class="relative top-20 mx-auto p-5 border border-gray-300 w-11/12 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-white">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-gray-900">Detalhes do Registro</h3>
-                <div class="flex gap-2">
-                    <button onclick="printDetails()" class="text-blue-600 hover:text-blue-800" title="Imprimir">
-                        <i class="fas fa-print"></i>
-                    </button>
-                    <button onclick="closeModal()" class="text-gray-600 hover:text-gray-800" title="Fechar">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-            </div>
-            <div id="modalContent" class="space-y-4 text-gray-900">
-                <!-- Conteúdo será preenchido via JavaScript -->
-            </div>
-        </div>
-    </div>
 </div>
 
-<script>
+<script type="text/javascript">
 function closeModal() {
     document.getElementById('detailsModal').classList.add('hidden');
 }
@@ -394,7 +373,7 @@ function printDetails() {
         '<html>' +
         '<head>' +
             '<title>Detalhes da Demanda</title>' +
-            '<link href="https://cdn.tailwindcss.com" rel="stylesheet">' +
+            '<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">' +
             '<style>' +
                 '@media print {' +
                     'body { padding: 20px; }' +
