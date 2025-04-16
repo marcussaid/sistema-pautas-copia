@@ -13,6 +13,13 @@
                 <li>O status deve ser um dos seguintes: Em andamento, Concluído, Pendente, Cancelado</li>
                 <li>A primeira linha deve conter os nomes das colunas</li>
             </ul>
+            <div class="mt-4">
+                <a href="{{ url_for('static', filename='exemplo_importacao.csv') }}" 
+                   class="text-blue-600 hover:text-blue-800 flex items-center">
+                    <i class="fas fa-download mr-2"></i>
+                    Baixar arquivo de exemplo
+                </a>
+            </div>
         </div>
 
         <!-- Formulário de Upload -->
