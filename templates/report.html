@@ -8,7 +8,10 @@
                 <i class="fas fa-print mr-2"></i>Imprimir Filtrados
             </button>
             <a href="{{ url_for('export_csv') }}" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
-                <i class="fas fa-file-csv mr-2"></i>Exportar CSV
+                <i class="fas fa-file-export mr-2"></i>Exportar CSV
+            </a>
+            <a href="{{ url_for('import_csv') }}" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded">
+                <i class="fas fa-file-import mr-2"></i>Importar CSV
             </a>
             <a href="{{ url_for('form') }}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
                 <i class="fas fa-plus mr-2"></i>Nova Demanda

@@ -11,8 +11,171 @@ import uuid
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+import pandas as pd
 
 UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
+CSV_FOLDER = os.path.join(UPLOAD_FOLDER, 'csv')
+os.makedirs(CSV_FOLDER, exist_ok=True)
+
+def validate_csv_data(df):
+    """Valida os dados do CSV"""
+    errors = []
+    
+    # Verifica colunas obrigatórias
+    required_columns = ['Data', 'Demanda', 'Assunto', 'Local', 'Status']
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    if missing_columns:
+        errors.append(f"Colunas obrigatórias faltando: {', '.join(missing_columns)}")
+        return errors
+    
+    # Valida status
+    invalid_status = df[~df['Status'].isin(STATUS_CHOICES)]['Status'].unique()
+    if len(invalid_status) > 0:
+        errors.append(f"Status inválidos encontrados: {', '.join(invalid_status)}")
+    
+    # Valida datas
+    try:
+        pd.to_datetime(df['Data'], format='%d/%m/%Y')
+    except ValueError as e:
+        errors.append("Formato de data inválido. Use DD/MM/AAAA")
+    
+    # Valida campos obrigatórios não vazios
+    for col in ['Demanda', 'Assunto', 'Local']:
+        empty_rows = df[df[col].isna()].index.tolist()
+        if empty_rows:
+            errors.append(f"Campo {col} vazio nas linhas: {', '.join(map(str, empty_rows))}")
+    
+    return errors
+
+def process_csv_data(df):
+    """Processa e formata os dados do CSV para inserção"""
+    # Converte datas para o formato correto
+    df['Data'] = pd.to_datetime(df['Data'], format='%d/%m/%Y')
+    
+    # Garante que todas as colunas necessárias existem
+    if 'Direcionamentos' not in df.columns:
+        df['Direcionamentos'] = None
+    
+    # Preenche valores nulos
+    df = df.fillna('')
+    
+    return df
+
+@app.route('/import_csv', methods=['GET', 'POST'])
+@login_required
+def import_csv():
+    if request.method == 'POST':
+        if 'confirm' in request.form:
+            # Processa o arquivo temporário salvo
+            temp_file = os.path.join(CSV_FOLDER, 'temp_import.csv')
+            if not os.path.exists(temp_file):
+                flash('Nenhum arquivo para importar. Faça o upload novamente.')
+                return redirect(url_for('import_csv'))
+            
+            try:
+                df = pd.read_csv(temp_file)
+                df = process_csv_data(df)
+                
+                # Insere os registros no banco
+                for _, row in df.iterrows():
+                    query = '''
+                        INSERT INTO registros 
+                        (data, demanda, assunto, local, direcionamentos, status, 
+                         ultimo_editor, data_ultima_edicao, anexos)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, 
+                                CURRENT_TIMESTAMP AT TIME ZONE 'America/Manaus', '[]'::jsonb)
+                    '''
+                    query_db(query, [
+                        row['Data'].strftime('%Y-%m-%d'),
+                        row['Demanda'],
+                        row['Assunto'],
+                        row['Local'],
+                        row['Direcionamentos'],
+                        row['Status'],
+                        current_user.username
+                    ])
+                
+                # Remove o arquivo temporário
+                os.remove(temp_file)
+                
+                flash(f'{len(df)} registros importados com sucesso!')
+                return redirect(url_for('report'))
+                
+            except Exception as e:
+                flash(f'Erro ao importar dados: {str(e)}')
+                return redirect(url_for('import_csv'))
+        
+        if 'file' not in request.files:
+            flash('Nenhum arquivo selecionado')
+            return redirect(url_for('import_csv'))
+            
+        file = request.files['file']
+        if file.filename == '':
+            flash('Nenhum arquivo selecionado')
+            return redirect(url_for('import_csv'))
+            
+        if not file.filename.endswith('.csv'):
+            flash('Arquivo deve ser do tipo CSV')
+            return redirect(url_for('import_csv'))
+            
+        try:
+            # Salva o arquivo temporariamente
+            temp_file = os.path.join(CSV_FOLDER, 'temp_import.csv')
+            file.save(temp_file)
+            
+            # Lê o CSV com pandas
+            df = pd.read_csv(temp_file)
+            
+            # Valida os dados
+            if request.form.get('validate_data'):
+                errors = validate_csv_data(df)
+                if errors:
+                    os.remove(temp_file)
+                    flash('Erros encontrados no arquivo:')
+                    for error in errors:
+                        flash(error)
+                    return redirect(url_for('import_csv'))
+            
+            # Se solicitado preview, mostra os primeiros registros
+            if request.form.get('preview'):
+                preview_data = [df.columns.tolist()] + df.values.tolist()
+                return render_template('import_csv.html', preview_data=preview_data)
+            
+            # Se não precisar de preview, processa diretamente
+            df = process_csv_data(df)
+            
+            # Insere os registros no banco
+            for _, row in df.iterrows():
+                query = '''
+                    INSERT INTO registros 
+                    (data, demanda, assunto, local, direcionamentos, status, 
+                     ultimo_editor, data_ultima_edicao, anexos)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, 
+                            CURRENT_TIMESTAMP AT TIME ZONE 'America/Manaus', '[]'::jsonb)
+                '''
+                query_db(query, [
+                    row['Data'].strftime('%Y-%m-%d'),
+                    row['Demanda'],
+                    row['Assunto'],
+                    row['Local'],
+                    row['Direcionamentos'],
+                    row['Status'],
+                    current_user.username
+                ])
+            
+            # Remove o arquivo temporário
+            os.remove(temp_file)
+            
+            flash(f'{len(df)} registros importados com sucesso!')
+            return redirect(url_for('report'))
+            
+        except Exception as e:
+            flash(f'Erro ao processar arquivo: {str(e)}')
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+            return redirect(url_for('import_csv'))
+    
+    return render_template('import_csv.html')
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'xls', 'xlsx', 'mp3', 'wav'}
 
 # Garante que o diretório de uploads existe
