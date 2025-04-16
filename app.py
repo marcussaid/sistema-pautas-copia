@@ -13,6 +13,19 @@ from datetime import datetime, timedelta
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import pandas as pd
 
+# Inicialização do Flask
+app = Flask(__name__, static_folder='static')
+app.secret_key = os.environ.get('SECRET_KEY', 'sistema_demandas_secret_key_2024')
+
+# Configuração do Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+# Lista de status disponíveis
+STATUS_CHOICES = ['Em andamento', 'Concluído', 'Pendente', 'Cancelado']
+
+# Configurações de upload
 UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
 CSV_FOLDER = os.path.join(UPLOAD_FOLDER, 'csv')
 os.makedirs(CSV_FOLDER, exist_ok=True)
@@ -177,12 +190,6 @@ def import_csv():
     
     return render_template('import_csv.html')
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'xls', 'xlsx', 'mp3', 'wav'}
-
-# Garante que o diretório de uploads existe
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-app = Flask(__name__, static_folder='static')
-app.secret_key = os.environ.get('SECRET_KEY', 'sistema_demandas_secret_key_2024')
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -354,14 +361,6 @@ def health_check():
             'timestamp': datetime.now().isoformat(),
             'error': str(e)
         }), 500
-
-# Configuração do Flask-Login
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = 'login'
-
-# Lista de status disponíveis
-STATUS_CHOICES = ['Em andamento', 'Concluído', 'Pendente', 'Cancelado']
 
 # Configuração do banco de dados PostgreSQL
 DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://sistema_demandas_db_user:cP52Pdxr3o1tuCVk5TVs9B6MW5rEF6UR@dpg-cvuif46mcj7s73cetkrg-a/sistema_demandas_db')
