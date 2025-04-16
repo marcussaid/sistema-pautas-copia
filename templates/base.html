@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,26 +7,49 @@
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+        
+        // Função para alternar entre temas
+        function toggleTheme() {
+            const htmlElement = document.documentElement;
+            htmlElement.classList.toggle('dark');
+            localStorage.setItem('theme', htmlElement.classList.contains('dark') ? 'dark' : 'light');
+        }
+
+        // Carrega a preferência do tema do usuário
+        window.onload = function() {
+            const theme = localStorage.getItem('theme') || 'light';
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+            }
+        }
+    </script>
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-100 dark:bg-gray-900 transition-colors">
     {% if current_user.is_authenticated %}
-    <nav class="bg-blue-600 p-4">
+    <nav class="bg-blue-600 dark:bg-gray-800 p-4 transition-colors">
         <div class="container mx-auto flex justify-between items-center">
             <div class="flex items-center gap-4">
                 <img src="{{ url_for('static', filename='img/favicon.png') }}" alt="Logo ASCOM/SMEC" class="h-10">
                 <div>
-                    <a href="/form" class="text-white font-bold hover:text-blue-100">Formulário</a>
-                    <a href="/report" class="text-white font-bold ml-4 hover:text-blue-100">Relatório</a>
+                    <a href="/form" class="text-white font-bold hover:text-blue-100 dark:hover:text-gray-300 transition-colors">Formulário</a>
+                    <a href="/report" class="text-white font-bold ml-4 hover:text-blue-100 dark:hover:text-gray-300 transition-colors">Relatório</a>
                 </div>
             </div>
             <div class="flex items-center gap-4">
                 {% if current_user.is_superuser %}
-                <a href="{{ url_for('admin') }}" class="text-white font-bold hover:text-blue-100">
+                <a href="{{ url_for('admin') }}" class="text-white font-bold hover:text-blue-100 dark:hover:text-gray-300 transition-colors">
                     <i class="fas fa-cogs mr-1"></i>Administração
                 </a>
                 {% endif %}
-                <span class="text-white">Olá, {{ current_user.username }}</span>
-                <a href="/logout" class="text-white font-bold bg-red-600 hover:bg-red-700 px-4 py-2 rounded transition duration-150">
+                <span class="text-white dark:text-gray-300 transition-colors">Olá, {{ current_user.username }}</span>
+                <button onclick="toggleTheme()" class="text-white font-bold bg-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 px-4 py-2 rounded transition-colors">
+                    <i class="fas fa-adjust mr-1"></i>Alternar Tema
+                </button>
+                <a href="/logout" class="text-white font-bold bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 px-4 py-2 rounded transition-colors">
                     <i class="fas fa-sign-out-alt mr-1"></i>Sair
                 </a>
             </div>
@@ -37,7 +60,7 @@
         {% with messages = get_flashed_messages() %}
             {% if messages %}
                 {% for message in messages %}
-                    <div class="mb-4 p-4 {% if 'sucesso' in message.lower() %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %} rounded">
+                    <div class="mb-4 p-4 {% if 'sucesso' in message.lower() %}bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300{% else %}bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300{% endif %} rounded transition-colors">
                         {{ message }}
                     </div>
                 {% endfor %}
