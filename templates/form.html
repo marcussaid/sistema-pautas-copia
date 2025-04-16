@@ -1,12 +1,12 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="container mx-auto px-4 py-8">
-    <h1 class="text-3xl font-bold mb-8">Registro de Demandas</h1>
+<div class="container mx-auto px-4 py-8 bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors">
+    <h1 class="text-3xl font-bold mb-8 text-gray-900 dark:text-white transition-colors">Registro de Demandas</h1>
     
     {% with messages = get_flashed_messages() %}
         {% if messages %}
             {% for message in messages %}
-                <div class="mb-4 p-4 {% if 'sucesso' in message.lower() %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %} rounded">
+                <div class="mb-4 p-4 {% if 'sucesso' in message.lower() %}bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300{% else %}bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300{% endif %} rounded transition-colors">
                     {{ message }}
                 </div>
             {% endfor %}
@@ -15,33 +15,39 @@
 
     <form method="POST" action="{{ url_for('submit') }}" class="max-w-lg mb-8" id="demandaForm" enctype="multipart/form-data">
         <div class="mb-4">
-            <label class="block text-gray-700 font-bold mb-2" for="data">Data</label>
-            <input type="date" id="data" name="data" required class="w-full px-3 py-2 border rounded bg-white" 
+            <label class="block text-gray-700 dark:text-gray-200 font-bold mb-2 transition-colors" for="data">Data</label>
+            <input type="date" id="data" name="data" required 
+                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-colors" 
                    value="{{ form_data.get('data', '') }}" max="{{ today }}">
         </div>
         <div class="mb-4">
-            <label class="block text-gray-700 font-bold mb-2" for="demanda">Demanda</label>
-            <input type="text" id="demanda" name="demanda" required class="w-full px-3 py-2 border rounded" 
+            <label class="block text-gray-700 dark:text-gray-200 font-bold mb-2 transition-colors" for="demanda">Demanda</label>
+            <input type="text" id="demanda" name="demanda" required 
+                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors" 
                    placeholder="Digite a demanda" value="{{ form_data.get('demanda', '') }}">
         </div>
         <div class="mb-4">
-            <label class="block text-gray-700 font-bold mb-2" for="assunto">Assunto</label>
-            <input type="text" id="assunto" name="assunto" required class="w-full px-3 py-2 border rounded" 
+            <label class="block text-gray-700 dark:text-gray-200 font-bold mb-2 transition-colors" for="assunto">Assunto</label>
+            <input type="text" id="assunto" name="assunto" required 
+                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors" 
                    placeholder="Digite o assunto" value="{{ form_data.get('assunto', '') }}">
         </div>
         <div class="mb-4">
-            <label class="block text-gray-700 font-bold mb-2" for="local">Local</label>
-            <input type="text" id="local" name="local" required class="w-full px-3 py-2 border rounded" 
+            <label class="block text-gray-700 dark:text-gray-200 font-bold mb-2 transition-colors" for="local">Local</label>
+            <input type="text" id="local" name="local" required 
+                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors" 
                    placeholder="Ex: Sala de Reuniões, Auditório, etc" value="{{ form_data.get('local', '') }}">
         </div>
         <div class="mb-4">
-            <label class="block text-gray-700 font-bold mb-2" for="direcionamentos">Direcionamentos</label>
-            <textarea id="direcionamentos" name="direcionamentos" rows="3" class="w-full px-3 py-2 border rounded" 
+            <label class="block text-gray-700 dark:text-gray-200 font-bold mb-2 transition-colors" for="direcionamentos">Direcionamentos</label>
+            <textarea id="direcionamentos" name="direcionamentos" rows="3" 
+                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors" 
                    placeholder="Digite os direcionamentos">{{ form_data.get('direcionamentos', '') }}</textarea>
         </div>
         <div class="mb-4">
-            <label class="block text-gray-700 font-bold mb-2" for="status">Status</label>
-            <select id="status" name="status" required class="w-full px-3 py-2 border rounded bg-white">
+            <label class="block text-gray-700 dark:text-gray-200 font-bold mb-2 transition-colors" for="status">Status</label>
+            <select id="status" name="status" required 
+                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-colors">
                 <option value="Em andamento">Em andamento</option>
                 <option value="Concluído">Concluído</option>
                 <option value="Pendente">Pendente</option>
@@ -49,13 +55,13 @@
             </select>
         </div>
         <!-- Seção de Anexos -->
-        <div class="mb-6 p-4 border rounded">
-            <h3 class="font-bold mb-2">Anexos</h3>
+        <div class="mb-6 p-4 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 transition-colors">
+            <h3 class="font-bold mb-2 text-gray-900 dark:text-white transition-colors">Anexos</h3>
             <div class="flex items-center gap-2">
                 <input type="file" id="fileInput" name="files" multiple 
                        class="hidden" accept=".pdf,.png,.jpg,.jpeg,.gif,.doc,.docx,.xls,.xlsx,.mp3,.wav">
                 <button type="button" onclick="document.getElementById('fileInput').click()" 
-                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                        class="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors">
                     <i class="fas fa-upload mr-2"></i>Selecionar Arquivos
                 </button>
             </div>
@@ -65,10 +71,10 @@
         </div>
 
         <div class="flex items-center justify-between">
-            <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+            <button type="submit" class="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors">
                 Salvar
             </button>
-            <a href="{{ url_for('report') }}" class="text-blue-500 hover:text-blue-700 font-bold">
+            <a href="{{ url_for('report') }}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-bold transition-colors">
                 Ver Relatório
             </a>
         </div>
@@ -84,14 +90,14 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
 
     Array.from(fileList).forEach((file, index) => {
         const fileDiv = document.createElement('div');
-        fileDiv.className = 'flex items-center justify-between p-2 bg-gray-50 rounded';
+        fileDiv.className = 'flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded transition-colors';
         fileDiv.innerHTML = `
             <div class="flex items-center gap-2">
-                <i class="fas fa-file text-gray-600"></i>
-                <span class="text-sm">${file.name}</span>
+                <i class="fas fa-file text-gray-600 dark:text-gray-400"></i>
+                <span class="text-sm text-gray-900 dark:text-white transition-colors">${file.name}</span>
             </div>
             <button type="button" onclick="removeFile(${index})" 
-                    class="text-red-600 hover:text-red-800" title="Remover">
+                    class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors" title="Remover">
                 <i class="fas fa-times"></i>
             </button>
         `;
