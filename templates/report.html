@@ -1,39 +1,39 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="container mx-auto px-4 py-8 bg-gray-50 dark:bg-gray-900 transition-colors">
+<div class="container mx-auto px-4 py-8 bg-gray-50">
     <div class="flex flex-col md:flex-row justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold mb-4 md:mb-0 text-gray-900 dark:text-white transition-colors">Relatório de Demandas</h1>
+        <h1 class="text-2xl font-bold mb-4 md:mb-0 text-gray-900">Relatório de Demandas</h1>
         <div class="flex gap-2">
-            <button onclick="printAllFiltered()" class="bg-purple-600 dark:bg-purple-700 hover:bg-purple-700 dark:hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition-colors">
+            <button onclick="printAllFiltered()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded">
                 <i class="fas fa-print mr-2"></i>Imprimir Filtrados
             </button>
-            <a href="{{ url_for('export_csv') }}" class="bg-green-600 dark:bg-green-700 hover:bg-green-700 dark:hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition-colors">
+            <a href="{{ url_for('export_csv') }}" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
                 <i class="fas fa-file-export mr-2"></i>Exportar CSV
             </a>
-            <a href="{{ url_for('import_csv') }}" class="bg-yellow-600 dark:bg-yellow-700 hover:bg-yellow-700 dark:hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded transition-colors">
+            <a href="{{ url_for('import_csv') }}" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded">
                 <i class="fas fa-file-import mr-2"></i>Importar CSV
             </a>
-            <a href="{{ url_for('form') }}" class="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors">
+            <a href="{{ url_for('form') }}" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
                 <i class="fas fa-plus mr-2"></i>Nova Demanda
             </a>
         </div>
     </div>
 
     <!-- Filtros -->
-    <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg mb-6 transition-colors">
+    <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
         <form method="GET" action="{{ url_for('report') }}" class="space-y-4">
             <!-- Filtros de Data -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1 transition-colors">Data Inicial</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Data Inicial</label>
                     <input type="date" name="data_inicial" 
-                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-colors"
+                           class="w-full px-3 py-2 border border-gray-300 rounded bg-white text-gray-900"
                            value="{{ request.args.get('data_inicial', '') }}">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1 transition-colors">Data Final</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Data Final</label>
                     <input type="date" name="data_final" 
-                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-colors"
+                           class="w-full px-3 py-2 border border-gray-300 rounded bg-white text-gray-900"
                            value="{{ request.args.get('data_final', '') }}">
                 </div>
             </div>
@@ -41,31 +41,31 @@
             <!-- Filtros Rápidos de Data -->
             <div class="flex flex-wrap gap-2">
                 <button type="submit" name="periodo" value="hoje" 
-                        class="px-3 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded text-sm transition-colors">
+                        class="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm">
                     Hoje
                 </button>
                 <button type="submit" name="periodo" value="ontem"
-                        class="px-3 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded text-sm transition-colors">
+                        class="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm">
                     Ontem
                 </button>
                 <button type="submit" name="periodo" value="semana"
-                        class="px-3 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded text-sm transition-colors">
+                        class="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm">
                     Última Semana
                 </button>
                 <button type="submit" name="periodo" value="mes"
-                        class="px-3 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded text-sm transition-colors">
+                        class="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm">
                     Último Mês
                 </button>
                 <button type="submit" name="periodo" value="trimestre"
-                        class="px-3 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded text-sm transition-colors">
+                        class="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm">
                     Último Trimestre
                 </button>
                 <button type="submit" name="periodo" value="semestre"
-                        class="px-3 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded text-sm transition-colors">
+                        class="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm">
                     Último Semestre
                 </button>
                 <button type="submit" name="periodo" value="ano"
-                        class="px-3 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded text-sm transition-colors">
+                        class="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm">
                     Último Ano
                 </button>
             </div>
@@ -73,20 +73,20 @@
             <!-- Outros Filtros -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1 transition-colors">Buscar</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
                     <input type="text" name="search" placeholder="Buscar em demandas e assuntos..." 
-                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
+                           class="w-full px-3 py-2 border border-gray-300 rounded bg-white text-gray-900 placeholder-gray-400"
                            value="{{ request.args.get('search', '') }}">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1 transition-colors">Local</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Local</label>
                     <input type="text" name="local_filter" placeholder="Filtrar por local..." 
-                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
+                           class="w-full px-3 py-2 border border-gray-300 rounded bg-white text-gray-900 placeholder-gray-400"
                            value="{{ request.args.get('local_filter', '') }}">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1 transition-colors">Status</label>
-                    <select name="status_filter" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-colors">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select name="status_filter" class="w-full px-3 py-2 border border-gray-300 rounded bg-white text-gray-900">
                         <option value="">Todos</option>
                         {% for status in ['Em andamento', 'Concluído', 'Pendente', 'Cancelado'] %}
                             <option value="{{ status }}" {% if request.args.get('status_filter') == status %}selected{% endif %}>
@@ -98,10 +98,10 @@
             </div>
 
             <div class="flex justify-end gap-2">
-                <a href="{{ url_for('report') }}" class="bg-gray-600 dark:bg-gray-700 hover:bg-gray-700 dark:hover:bg-gray-600 text-white font-bold py-2 px-4 rounded transition-colors">
+                <a href="{{ url_for('report') }}" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
                     Limpar Filtros
                 </a>
-                <button type="submit" class="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors">
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
                     Aplicar Filtros
                 </button>
             </div>
@@ -109,114 +109,114 @@
     </div>
 
     <!-- Tabela de Resultados -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-colors">
+    <div class="bg-white rounded-lg shadow-lg overflow-hidden">
         <table class="min-w-full">
             <thead>
-                <tr class="bg-gray-100 dark:bg-gray-700 transition-colors">
-                    <th class="py-2 px-4 border-b dark:border-gray-600 text-left">
+                <tr class="bg-gray-100">
+                    <th class="py-2 px-4 border-b text-left">
                         <a href="{{ url_for('report', sort='data', direction='asc' if sort_column == 'data' and sort_direction == 'desc' else 'desc', **request.args) }}"
-                           class="flex items-center text-gray-900 dark:text-white transition-colors">
+                           class="flex items-center text-gray-900">
                             Data
                             {% if sort_column == 'data' %}
                                 <i class="fas fa-sort-{{ 'up' if sort_direction == 'asc' else 'down' }} ml-1"></i>
                             {% else %}
-                                <i class="fas fa-sort ml-1 text-gray-400 dark:text-gray-500"></i>
+                                <i class="fas fa-sort ml-1 text-gray-400"></i>
                             {% endif %}
                         </a>
                     </th>
-                    <th class="py-2 px-4 border-b dark:border-gray-600 text-left">
+                    <th class="py-2 px-4 border-b text-left">
                         <a href="{{ url_for('report', sort='demanda', direction='asc' if sort_column == 'demanda' and sort_direction == 'desc' else 'desc', **request.args) }}"
-                           class="flex items-center text-gray-900 dark:text-white transition-colors">
+                           class="flex items-center text-gray-900">
                             Demanda
                             {% if sort_column == 'demanda' %}
                                 <i class="fas fa-sort-{{ 'up' if sort_direction == 'asc' else 'down' }} ml-1"></i>
                             {% else %}
-                                <i class="fas fa-sort ml-1 text-gray-400 dark:text-gray-500"></i>
+                                <i class="fas fa-sort ml-1 text-gray-400"></i>
                             {% endif %}
                         </a>
                     </th>
-                    <th class="py-2 px-4 border-b dark:border-gray-600 text-left">
+                    <th class="py-2 px-4 border-b text-left">
                         <a href="{{ url_for('report', sort='assunto', direction='asc' if sort_column == 'assunto' and sort_direction == 'desc' else 'desc', **request.args) }}"
-                           class="flex items-center text-gray-900 dark:text-white transition-colors">
+                           class="flex items-center text-gray-900">
                             Assunto
                             {% if sort_column == 'assunto' %}
                                 <i class="fas fa-sort-{{ 'up' if sort_direction == 'asc' else 'down' }} ml-1"></i>
                             {% else %}
-                                <i class="fas fa-sort ml-1 text-gray-400 dark:text-gray-500"></i>
+                                <i class="fas fa-sort ml-1 text-gray-400"></i>
                             {% endif %}
                         </a>
                     </th>
-                    <th class="py-2 px-4 border-b dark:border-gray-600 text-left">
+                    <th class="py-2 px-4 border-b text-left">
                         <a href="{{ url_for('report', sort='local', direction='asc' if sort_column == 'local' and sort_direction == 'desc' else 'desc', **request.args) }}"
-                           class="flex items-center text-gray-900 dark:text-white transition-colors">
+                           class="flex items-center text-gray-900">
                             Local
                             {% if sort_column == 'local' %}
                                 <i class="fas fa-sort-{{ 'up' if sort_direction == 'asc' else 'down' }} ml-1"></i>
                             {% else %}
-                                <i class="fas fa-sort ml-1 text-gray-400 dark:text-gray-500"></i>
+                                <i class="fas fa-sort ml-1 text-gray-400"></i>
                             {% endif %}
                         </a>
                     </th>
-                    <th class="py-2 px-4 border-b dark:border-gray-600 text-left">
+                    <th class="py-2 px-4 border-b text-left">
                         <a href="{{ url_for('report', sort='direcionamentos', direction='asc' if sort_column == 'direcionamentos' and sort_direction == 'desc' else 'desc', **request.args) }}"
-                           class="flex items-center text-gray-900 dark:text-white transition-colors">
+                           class="flex items-center text-gray-900">
                             Direcionamentos
                             {% if sort_column == 'direcionamentos' %}
                                 <i class="fas fa-sort-{{ 'up' if sort_direction == 'asc' else 'down' }} ml-1"></i>
                             {% else %}
-                                <i class="fas fa-sort ml-1 text-gray-400 dark:text-gray-500"></i>
+                                <i class="fas fa-sort ml-1 text-gray-400"></i>
                             {% endif %}
                         </a>
                     </th>
-                    <th class="py-2 px-4 border-b dark:border-gray-600 text-left">
+                    <th class="py-2 px-4 border-b text-left">
                         <a href="{{ url_for('report', sort='status', direction='asc' if sort_column == 'status' and sort_direction == 'desc' else 'desc', **request.args) }}"
-                           class="flex items-center text-gray-900 dark:text-white transition-colors">
+                           class="flex items-center text-gray-900">
                             Status
                             {% if sort_column == 'status' %}
                                 <i class="fas fa-sort-{{ 'up' if sort_direction == 'asc' else 'down' }} ml-1"></i>
                             {% else %}
-                                <i class="fas fa-sort ml-1 text-gray-400 dark:text-gray-500"></i>
+                                <i class="fas fa-sort ml-1 text-gray-400"></i>
                             {% endif %}
                         </a>
                     </th>
-                    <th class="py-2 px-4 border-b dark:border-gray-600 text-center text-gray-900 dark:text-white transition-colors">Ações</th>
+                    <th class="py-2 px-4 border-b text-center text-gray-900">Ações</th>
                 </tr>
             </thead>
             <tbody>
                 {% for registro in registros %}
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white transition-colors">
-                    <td class="py-2 px-4 border-b dark:border-gray-600">{{ registro['data'].strftime('%d/%m/%Y') }}</td>
-                    <td class="py-2 px-4 border-b dark:border-gray-600">{{ registro['demanda'] }}</td>
-                    <td class="py-2 px-4 border-b dark:border-gray-600">{{ registro['assunto'] }}</td>
-                    <td class="py-2 px-4 border-b dark:border-gray-600">{{ registro['local'] }}</td>
-                    <td class="py-2 px-4 border-b dark:border-gray-600">{{ registro['direcionamentos'] or 'N/A' }}</td>
-                    <td class="py-2 px-4 border-b dark:border-gray-600">
+                <tr class="hover:bg-gray-50 text-gray-900">
+                    <td class="py-2 px-4 border-b">{{ registro['data'].strftime('%d/%m/%Y') }}</td>
+                    <td class="py-2 px-4 border-b">{{ registro['demanda'] }}</td>
+                    <td class="py-2 px-4 border-b">{{ registro['assunto'] }}</td>
+                    <td class="py-2 px-4 border-b">{{ registro['local'] }}</td>
+                    <td class="py-2 px-4 border-b">{{ registro['direcionamentos'] or 'N/A' }}</td>
+                    <td class="py-2 px-4 border-b">
                         <span class="px-2 py-1 rounded text-sm
                             {% if registro['status'] == 'Concluído' %}
-                                bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300
+                                bg-green-100 text-green-800
                             {% elif registro['status'] == 'Em andamento' %}
-                                bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300
+                                bg-blue-100 text-blue-800
                             {% elif registro['status'] == 'Pendente' %}
-                                bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-300
+                                bg-yellow-100 text-yellow-800
                             {% else %}
-                                bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-300
-                            {% endif %} transition-colors">
+                                bg-red-100 text-red-800
+                            {% endif %}">
                             {{ registro['status'] }}
                         </span>
                     </td>
-                     <td class="py-2 px-4 border-b dark:border-gray-600 text-center">
+                     <td class="py-2 px-4 border-b text-center">
                          <div class="flex justify-center gap-2">
                              <button onclick="viewDetails({{ registro['id'] }})" 
-                                     class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors" title="Ver Detalhes">
+                                     class="text-blue-600 hover:text-blue-700" title="Ver Detalhes">
                                  <i class="fas fa-eye"></i>
                              </button>
                              <a href="{{ url_for('edit', id=registro['id']) }}" 
-                                class="text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300 transition-colors" title="Editar">
+                                class="text-yellow-600 hover:text-yellow-700" title="Editar">
                                  <i class="fas fa-edit"></i>
                              </a>
                              <form method="POST" action="{{ url_for('delete', id=registro['id']) }}" 
                                    class="inline" onsubmit="return confirm('Tem certeza que deseja excluir este registro?');">
-                                 <button type="submit" class="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors" title="Excluir">
+                                 <button type="submit" class="text-red-600 hover:text-red-700" title="Excluir">
                                      <i class="fas fa-trash"></i>
                                  </button>
                              </form>
@@ -259,246 +259,249 @@
 </div>
 
     <!-- Modal de Detalhes -->
-    <div id="detailsModal" class="fixed inset-0 bg-gray-600 dark:bg-gray-900 bg-opacity-50 hidden overflow-y-auto h-full w-full">
-        <div class="relative top-20 mx-auto p-5 border border-gray-300 dark:border-gray-600 w-11/12 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-white dark:bg-gray-800 transition-colors">
+    <div id="detailsModal" class="fixed inset-0 bg-gray-600 hidden overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border border-gray-300 w-11/12 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-white">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-gray-900 dark:text-white transition-colors">Detalhes do Registro</h3>
+                <h3 class="text-lg font-bold text-gray-900">Detalhes do Registro</h3>
                 <div class="flex gap-2">
-                    <button onclick="printDetails()" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors" title="Imprimir">
+                    <button onclick="printDetails()" class="text-blue-600 hover:text-blue-800" title="Imprimir">
                         <i class="fas fa-print"></i>
                     </button>
-                    <button onclick="closeModal()" class="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 transition-colors" title="Fechar">
+                    <button onclick="closeModal()" class="text-gray-600 hover:text-gray-800" title="Fechar">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
             </div>
-            <div id="modalContent" class="space-y-4 text-gray-900 dark:text-white transition-colors">
+            <div id="modalContent" class="space-y-4 text-gray-900">
                 <!-- Conteúdo será preenchido via JavaScript -->
             </div>
         </div>
     </div>
 
+</div>
+
 <script>
+{% endblock %}
+function closeModal() {
+    document.getElementById('detailsModal').classList.add('hidden');
+}
+
 function printAllFiltered() {
-    const registros = Array.from(document.querySelectorAll('table tbody tr')).map(row => {
-        return {
-            data: row.cells[0].textContent,
-            demanda: row.cells[1].textContent,
-            assunto: row.cells[2].textContent,
-            local: row.cells[3].textContent,
-            direcionamentos: row.cells[4].textContent,
-            status: row.cells[5].textContent.trim()
-        };
-    });
-
-    const printWindow = window.open('', '_blank');
-    const currentDate = new Date().toLocaleString();
-    const filtrosAtivos = [];
-    const isDarkMode = document.documentElement.classList.contains('dark');
+    var rows = document.querySelectorAll('table tbody tr');
+    var registros = [];
+    var printWindow = window.open('', '_blank');
+    var currentDate = new Date().toLocaleString();
+    var filtrosAtivos = [];
     
+    for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        registros.push({
+            data: row.cells[0].textContent.trim(),
+            demanda: row.cells[1].textContent.trim(),
+            assunto: row.cells[2].textContent.trim(),
+            local: row.cells[3].textContent.trim(),
+            direcionamentos: row.cells[4].textContent.trim(),
+            status: row.cells[5].textContent.trim()
+        });
+    }
     // Captura filtros ativos
-    const searchValue = document.querySelector('input[name="search"]').value;
-    const dataInicial = document.querySelector('input[name="data_inicial"]').value;
-    const dataFinal = document.querySelector('input[name="data_final"]').value;
-    const localFilter = document.querySelector('input[name="local_filter"]').value;
-    const statusFilter = document.querySelector('select[name="status_filter"]').value;
+    var searchValue = document.querySelector('input[name="search"]').value;
+    var dataInicial = document.querySelector('input[name="data_inicial"]').value;
+    var dataFinal = document.querySelector('input[name="data_final"]').value;
+    var localFilter = document.querySelector('input[name="local_filter"]').value;
+    var statusFilter = document.querySelector('select[name="status_filter"]').value;
 
-    if (searchValue) filtrosAtivos.push(`Busca: ${searchValue}`);
-    if (dataInicial) filtrosAtivos.push(`Data Inicial: ${dataInicial}`);
-    if (dataFinal) filtrosAtivos.push(`Data Final: ${dataFinal}`);
-    if (localFilter) filtrosAtivos.push(`Local: ${localFilter}`);
-    if (statusFilter) filtrosAtivos.push(`Status: ${statusFilter}`);
+    if (searchValue) filtrosAtivos.push('Busca: ' + searchValue);
+    if (dataInicial) filtrosAtivos.push('Data Inicial: ' + dataInicial);
+    if (dataFinal) filtrosAtivos.push('Data Final: ' + dataFinal);
+    if (localFilter) filtrosAtivos.push('Local: ' + localFilter);
+    if (statusFilter) filtrosAtivos.push('Status: ' + statusFilter);
 
-    const filtrosHtml = filtrosAtivos.length > 0 
-        ? `<div class="mb-4 text-sm text-gray-600 dark:text-gray-400 transition-colors">Filtros aplicados: ${filtrosAtivos.join(' | ')}</div>`
+    var filtrosHtml = filtrosAtivos.length > 0 
+        ? '<div class="mb-4 text-sm text-gray-600">Filtros aplicados: ' + filtrosAtivos.join(' | ') + '</div>'
         : '';
 
-    const registrosHtml = registros.map(reg => `
-        <div class="border-b border-gray-300 dark:border-gray-600 py-4 transition-colors">
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400 transition-colors">Data</p>
-                    <p class="font-medium text-gray-900 dark:text-white transition-colors">${reg.data}</p>
-                </div>
-                <div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400 transition-colors">Status</p>
-                    <p class="font-medium text-gray-900 dark:text-white transition-colors">${reg.status}</p>
-                </div>
-                <div class="col-span-2">
-                    <p class="text-sm text-gray-600 dark:text-gray-400 transition-colors">Local</p>
-                    <p class="font-medium text-gray-900 dark:text-white transition-colors">${reg.local}</p>
-                </div>
-                <div class="col-span-2">
-                    <p class="text-sm text-gray-600 dark:text-gray-400 transition-colors">Demanda</p>
-                    <p class="font-medium text-gray-900 dark:text-white transition-colors">${reg.demanda}</p>
-                </div>
-                <div class="col-span-2">
-                    <p class="text-sm text-gray-600 dark:text-gray-400 transition-colors">Assunto</p>
-                    <p class="font-medium text-gray-900 dark:text-white transition-colors">${reg.assunto}</p>
-                </div>
-                <div class="col-span-2">
-                    <p class="text-sm text-gray-600 dark:text-gray-400 transition-colors">Direcionamentos</p>
-                    <p class="font-medium text-gray-900 dark:text-white transition-colors">${reg.direcionamentos || 'N/A'}</p>
-                </div>
-            </div>
-        </div>
-    `).join('');
+    var registrosHtml = registros.map(function(reg) {
+        return '<div class="border-b border-gray-300 py-4">' +
+            '<div class="grid grid-cols-2 gap-4">' +
+                '<div>' +
+                    '<p class="text-sm text-gray-500">Data</p>' +
+                    '<p class="font-medium text-gray-900">' + reg.data + '</p>' +
+                '</div>' +
+                '<div>' +
+                    '<p class="text-sm text-gray-500">Status</p>' +
+                    '<p class="font-medium text-gray-900">' + reg.status + '</p>' +
+                '</div>' +
+                '<div class="col-span-2">' +
+                    '<p class="text-sm text-gray-500">Local</p>' +
+                    '<p class="font-medium text-gray-900">' + reg.local + '</p>' +
+                '</div>' +
+                '<div class="col-span-2">' +
+                    '<p class="text-sm text-gray-500">Demanda</p>' +
+                    '<p class="font-medium text-gray-900">' + reg.demanda + '</p>' +
+                '</div>' +
+                '<div class="col-span-2">' +
+                    '<p class="text-sm text-gray-500">Assunto</p>' +
+                    '<p class="font-medium text-gray-900">' + reg.assunto + '</p>' +
+                '</div>' +
+                '<div class="col-span-2">' +
+                    '<p class="text-sm text-gray-500">Direcionamentos</p>' +
+                    '<p class="font-medium text-gray-900">' + (reg.direcionamentos || 'N/A') + '</p>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    }).join('');
 
-    printWindow.document.write(`
-        <html class="${isDarkMode ? 'dark' : ''}">
-        <head>
-            <title>Relatório de Demandas</title>
-            <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-            <style>
-                @media print {
-                    body { padding: 20px; }
-                    .print-header { margin-bottom: 20px; }
-                    .page-break { page-break-after: always; }
-                }
-            </style>
-        </head>
-        <body class="bg-white dark:bg-gray-800 transition-colors">
-            <div class="print-header">
-                <h1 class="text-2xl font-bold mb-2 text-gray-900 dark:text-white transition-colors">Relatório de Demandas</h1>
-                <p class="text-gray-600 dark:text-gray-400 mb-2 transition-colors">Gerado em: ${currentDate}</p>
-                ${filtrosHtml}
-            </div>
-            <div class="registros">
-                ${registrosHtml}
-            </div>
-        </body>
-        </html>
-    `);
+    printWindow.document.write(
+        '<html>' +
+        '<head>' +
+            '<title>Relatório de Demandas</title>' +
+            '<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">' +
+            '<style>' +
+                '@media print {' +
+                    'body { padding: 20px; }' +
+                    '.print-header { margin-bottom: 20px; }' +
+                    '.page-break { page-break-after: always; }' +
+                '}' +
+            '</style>' +
+        '</head>' +
+        '<body class="bg-white">' +
+            '<div class="print-header">' +
+                '<h1 class="text-2xl font-bold mb-2 text-gray-900">Relatório de Demandas</h1>' +
+                '<p class="text-gray-600 mb-2">Gerado em: ' + currentDate + '</p>' +
+                filtrosHtml +
+            '</div>' +
+            '<div class="registros">' +
+                registrosHtml +
+            '</div>' +
+        '</body>' +
+        '</html>'
+    );
     
     printWindow.document.close();
     printWindow.focus();
-    setTimeout(() => {
+    setTimeout(function() {
         printWindow.print();
         printWindow.close();
     }, 250);
 }
 
 function printDetails() {
-    const modalContent = document.getElementById('modalContent').innerHTML;
-    const isDarkMode = document.documentElement.classList.contains('dark');
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-        <html class="${isDarkMode ? 'dark' : ''}">
-        <head>
-            <title>Detalhes da Demanda</title>
-            <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-            <style>
-                @media print {
-                    body { padding: 20px; }
-                    .print-header { margin-bottom: 20px; }
-                }
-            </style>
-        </head>
-        <body class="bg-white dark:bg-gray-800 transition-colors">
-            <div class="print-header">
-                <h1 class="text-2xl font-bold mb-4 text-gray-900 dark:text-white transition-colors">Detalhes da Demanda</h1>
-                <p class="text-gray-600 dark:text-gray-400 transition-colors">Impresso em: ${new Date().toLocaleString()}</p>
-            </div>
-            ${modalContent}
-        </body>
-        </html>
-    `);
+    var modalContent = document.getElementById('modalContent').innerHTML;
+    var printWindow = window.open('', '_blank');
+    var currentDate = new Date().toLocaleString();
+    
+    printWindow.document.write(
+        '<html>' +
+        '<head>' +
+            '<title>Detalhes da Demanda</title>' +
+            '<link href="https://cdn.tailwindcss.com" rel="stylesheet">' +
+            '<style>' +
+                '@media print {' +
+                    'body { padding: 20px; }' +
+                    '.print-header { margin-bottom: 20px; }' +
+                '}' +
+            '</style>' +
+        '</head>' +
+        '<body class="bg-white">' +
+            '<div class="print-header">' +
+                '<h1 class="text-2xl font-bold mb-4 text-gray-900">Detalhes da Demanda</h1>' +
+                '<p class="text-gray-600">Impresso em: ' + currentDate + '</p>' +
+            '</div>' +
+            modalContent +
+        '</body>' +
+        '</html>'
+    );
     printWindow.document.close();
     printWindow.focus();
-    setTimeout(() => {
+    setTimeout(function() {
         printWindow.print();
         printWindow.close();
     }, 250);
 }
 
 function viewDetails(id) {
-    fetch(`/registro/${id}`)
-        .then(response => response.json())
-        .then(data => {
+    fetch('/registro/' + id)
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
             // Constrói a seção principal de informações
-            const mainInfo = [
+            var mainInfo = [
                 '<div class="grid grid-cols-2 gap-4 mb-6">',
                 '<div>',
-                '<p class="text-sm text-gray-600">Data</p>',
-                '<p class="font-medium">' + (data.data || 'N/A') + '</p>',
+                '<p class="text-sm text-gray-500">Data</p>',
+                '<p class="font-medium text-gray-900">' + (data.data || 'N/A') + '</p>',
                 '</div>',
                 '<div>',
-                '<p class="text-sm text-gray-600">Status</p>',
-                '<p class="font-medium">' + (data.status || 'N/A') + '</p>',
+                '<p class="text-sm text-gray-500">Status</p>',
+                '<p class="font-medium text-gray-900">' + (data.status || 'N/A') + '</p>',
                 '</div>',
                 '<div class="col-span-2">',
-                '<p class="text-sm text-gray-600">Local</p>',
-                '<p class="font-medium">' + (data.local || 'N/A') + '</p>',
+                '<p class="text-sm text-gray-500">Local</p>',
+                '<p class="font-medium text-gray-900">' + (data.local || 'N/A') + '</p>',
                 '</div>',
                 '<div class="col-span-2">',
-                '<p class="text-sm text-gray-600">Demanda</p>',
-                '<p class="font-medium">' + (data.demanda || 'N/A') + '</p>',
+                '<p class="text-sm text-gray-500">Demanda</p>',
+                '<p class="font-medium text-gray-900">' + (data.demanda || 'N/A') + '</p>',
                 '</div>',
                 '<div class="col-span-2">',
-                '<p class="text-sm text-gray-600">Assunto</p>',
-                '<p class="font-medium">' + (data.assunto || 'N/A') + '</p>',
+                '<p class="text-sm text-gray-500">Assunto</p>',
+                '<p class="font-medium text-gray-900">' + (data.assunto || 'N/A') + '</p>',
                 '</div>',
                 '<div class="col-span-2">',
-                '<p class="text-sm text-gray-600">Direcionamentos</p>',
-                '<p class="font-medium">' + (data.direcionamentos || 'N/A') + '</p>',
+                '<p class="text-sm text-gray-500">Direcionamentos</p>',
+                '<p class="font-medium text-gray-900">' + (data.direcionamentos || 'N/A') + '</p>',
                 '</div>',
                 '<div>',
-                '<p class="text-sm text-gray-600">Último Editor</p>',
-                '<p class="font-medium">' + (data.ultimo_editor || 'N/A') + '</p>',
+                '<p class="text-sm text-gray-500">Último Editor</p>',
+                '<p class="font-medium text-gray-900">' + (data.ultimo_editor || 'N/A') + '</p>',
                 '</div>',
                 '<div>',
-                '<p class="text-sm text-gray-600">Última Edição</p>',
-                '<p class="font-medium">' + (data.data_ultima_edicao || 'N/A') + '</p>',
+                '<p class="text-sm text-gray-500">Última Edição</p>',
+                '<p class="font-medium text-gray-900">' + (data.data_ultima_edicao || 'N/A') + '</p>',
                 '</div>',
                 '</div>'
             ].join('');
 
             // Constrói a seção de anexos
-            let anexosHtml = '';
+            var anexosHtml = '';
             if (data.anexos && data.anexos.length > 0) {
-                const anexosList = data.anexos.map(anexo => `
-                    <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <div class="flex items-center gap-2">
-                            <i class="fas fa-file text-gray-600"></i>
-                            <span class="text-sm">${anexo.nome_original}</span>
-                        </div>
-                        <a href="/download_anexo/${data.id}/${anexo.id}" 
-                           class="text-blue-600 hover:text-blue-800" 
-                           title="Download">
-                            <i class="fas fa-download"></i>
-                        </a>
-                    </div>
-                `).join('');
+                var anexosList = data.anexos.map(function(anexo) {
+                    return '<div class="flex items-center justify-between p-2 bg-gray-50 hover:bg-gray-100 rounded">' +
+                        '<div class="flex items-center gap-2">' +
+                            '<i class="fas fa-file text-gray-500"></i>' +
+                            '<span class="text-sm text-gray-900">' + anexo.nome_original + '</span>' +
+                        '</div>' +
+                        '<a href="/download_anexo/' + data.id + '/' + anexo.id + '"' +
+                           ' class="text-blue-600 hover:text-blue-800"' +
+                           ' title="Baixar">' +
+                            '<i class="fas fa-download"></i>' +
+                        '</a>' +
+                    '</div>';
+                }).join('');
 
-                anexosHtml = `
-                    <div class="border-t pt-4 mt-4">
-                        <h3 class="text-lg font-bold mb-3">Anexos</h3>
-                        <div class="space-y-2">
-                            ${anexosList}
-                        </div>
-                    </div>
-                `;
+                anexosHtml = '<div class="border-t pt-4 mt-4">' +
+                    '<h3 class="text-lg font-bold mb-3 text-gray-900">Anexos</h3>' +
+                    '<div class="space-y-2">' +
+                        anexosList +
+                    '</div>' +
+                '</div>';
             }
 
             // Combina as seções
-            const content = mainInfo + anexosHtml;
+            var content = mainInfo + anexosHtml;
             document.getElementById('modalContent').innerHTML = content;
             document.getElementById('detailsModal').classList.remove('hidden');
         })
-        .catch(error => {
+        .catch(function(error) {
             console.error('Erro:', error);
             alert('Erro ao carregar os detalhes do registro');
         });
 }
 
-function closeModal() {
-    document.getElementById('detailsModal').classList.add('hidden');
-}
-
 // Fecha o modal quando clicar fora dele
-document.getElementById('detailsModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeModal();
+document.getElementById('detailsModal').addEventListener('click', function(event) {
+    if (event.target === this) {
+        document.getElementById('detailsModal').classList.add('hidden');
     }
 });
 </script>
