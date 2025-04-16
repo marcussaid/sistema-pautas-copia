@@ -530,6 +530,7 @@ def edit(id):
         demanda = request.form.get('demanda', '').strip()
         assunto = request.form.get('assunto', '').strip()
         status = request.form.get('status', '').strip()
+        direcionamentos = request.form.get('direcionamentos', '').strip()
 
         if not all([data, demanda, assunto, status]):
             flash('Por favor, preencha todos os campos.')

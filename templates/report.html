@@ -263,38 +263,38 @@ function viewDetails(id) {
     fetch(`/registro/${id}`)
         .then(response => response.json())
         .then(data => {
-            const content = `
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <p class="text-sm text-gray-600">Data</p>
-                        <p class="font-medium">${data.data}</p>
-                    </div>
-                    <div>
-                        <p class="text-sm text-gray-600">Status</p>
-                        <p class="font-medium">${data.status}</p>
-                    </div>
-                    <div class="col-span-2">
-                        <p class="text-sm text-gray-600">Local</p>
-                        <p class="font-medium">${data.local}</p>
-                    </div>
-                    <div class="col-span-2">
-                        <p class="text-sm text-gray-600">Demanda</p>
-                        <p class="font-medium">${data.demanda}</p>
-                    </div>
-                    <div class="col-span-2">
-                        <p class="text-sm text-gray-600">Assunto</p>
-                        <p class="font-medium">${data.assunto}</p>
-                    </div>
-                    <div>
-                        <p class="text-sm text-gray-600">Último Editor</p>
-                        <p class="font-medium">${data.ultimo_editor || 'N/A'}</p>
-                    </div>
-                    <div>
-                        <p class="text-sm text-gray-600">Última Edição</p>
-                        <p class="font-medium">${data.data_ultima_edicao || 'N/A'}</p>
-                    </div>
-                </div>
-            `;
+            const content = [
+                '<div class="grid grid-cols-2 gap-4">',
+                '<div>',
+                '<p class="text-sm text-gray-600">Data</p>',
+                '<p class="font-medium">' + (data.data || 'N/A') + '</p>',
+                '</div>',
+                '<div>',
+                '<p class="text-sm text-gray-600">Status</p>',
+                '<p class="font-medium">' + (data.status || 'N/A') + '</p>',
+                '</div>',
+                '<div class="col-span-2">',
+                '<p class="text-sm text-gray-600">Local</p>',
+                '<p class="font-medium">' + (data.local || 'N/A') + '</p>',
+                '</div>',
+                '<div class="col-span-2">',
+                '<p class="text-sm text-gray-600">Demanda</p>',
+                '<p class="font-medium">' + (data.demanda || 'N/A') + '</p>',
+                '</div>',
+                '<div class="col-span-2">',
+                '<p class="text-sm text-gray-600">Assunto</p>',
+                '<p class="font-medium">' + (data.assunto || 'N/A') + '</p>',
+                '</div>',
+                '<div>',
+                '<p class="text-sm text-gray-600">Último Editor</p>',
+                '<p class="font-medium">' + (data.ultimo_editor || 'N/A') + '</p>',
+                '</div>',
+                '<div>',
+                '<p class="text-sm text-gray-600">Última Edição</p>',
+                '<p class="font-medium">' + (data.data_ultima_edicao || 'N/A') + '</p>',
+                '</div>',
+                '</div>'
+            ].join('');
             document.getElementById('modalContent').innerHTML = content;
             document.getElementById('detailsModal').classList.remove('hidden');
         })
