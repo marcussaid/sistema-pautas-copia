@@ -836,14 +836,11 @@ def report():
                 count_query += condition
                 params.append(data_final)
         
-        filter_field = request.args.get('filter_field', '').strip()
-        filter_value = request.args.get('filter_value', '').strip()
-        
-        if filter_field and filter_value:
-            condition = f' AND {filter_field} ILIKE %s'
+        if local_filter:
+            condition = ' AND local ILIKE %s'
             query += condition
             count_query += condition
-            params.append('%' + filter_value + '%')
+            params.append('%' + local_filter + '%')
         
         if status_filter:
             condition = ' AND status = %s'
@@ -869,8 +866,10 @@ def report():
                              current_page=page,
                              total_pages=total_pages,
                              sort_column=sort_column,
-                             sort_direction=sort_direction)
+                             sort_direction=sort_direction,
+                             status_choices=STATUS_CHOICES)
     except Exception as e:
+        print(f'Erro ao carregar relatório: {str(e)}')
         flash(f'Erro ao carregar relatório: {str(e)}')
         return redirect(url_for('form'))
 
