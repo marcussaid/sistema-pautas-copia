@@ -151,7 +151,8 @@
                             <span class="text-gray-700 dark:text-gray-300 transition-colors duration-200">{{ count }}</span>
                         </div>
                         <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 transition-colors duration-200">
-                            <div class="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-200" style="width: {{ (count / stats['total_registros'] * 100)|round }}%"></div>
+                            {% set percent = (count / stats['total_registros'] * 100)|round if stats['total_registros'] > 0 else 0 %}
+                            <div class="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-200" style="width: {{ percent }}%"></div>
                         </div>
                     </div>
                     {% endfor %}
