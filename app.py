@@ -420,6 +420,17 @@ def submit():
         print(f'Erro ao salvar o registro: {str(e)}')
         return redirect(url_for('form'))
 
+@app.route('/estatisticas')
+@login_required
+def estatisticas():
+    # Obtém estatísticas para o dashboard
+    stats = get_stats()
+    
+    # Busca os registros para a tabela de demandas recentes
+    registros = query_db('''SELECT * FROM registros ORDER BY data DESC, id DESC''')
+    
+    return render_template('estatisticas.html', registros=registros, stats=stats)
+
 @app.route('/report')
 @login_required
 def report():
@@ -429,10 +440,7 @@ def report():
         ORDER BY data DESC, id DESC
     ''')
     
-    # Obtém estatísticas para o dashboard
-    stats = get_stats()
-    
-    return render_template('report.html', registros=registros, status_list=STATUS_CHOICES, stats=stats)
+    return render_template('report.html', registros=registros, status_list=STATUS_CHOICES)
 
 @app.route('/update_settings', methods=['POST'])
 @login_required
