@@ -854,4 +854,4 @@ if __name__ == '__main__':
     # Garantir que as tabelas do banco de dados existam
     ensure_tables()
     # Iniciar o servidor Flask
-    app.run(debug=True)
+    app.run(debug=True, port=8000)
