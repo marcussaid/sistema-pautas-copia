@@ -3,7 +3,7 @@ services:
     name: sistema-pautas
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
     healthCheckPath: /health
     healthCheckTimeout: 100
     healthCheckInterval: 15
@@ -19,3 +19,18 @@ services:
         value: 8000
       - key: UPLOAD_FOLDER
         value: /uploads
+      - key: FLASK_APP
+        value: app.py
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sistema_pautas_db
+          property: connectionString
+
+databases:
+  - name: sistema_pautas_db
+    databaseName: sistema_pautas
+    user: sistema_pautas_user
