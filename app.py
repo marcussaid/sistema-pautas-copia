@@ -46,7 +46,7 @@ class User(UserMixin):
 
 @login_manager.user_loader
 def load_user(user_id):
-    user = query_db('SELECT * FROM users WHERE id = %s', [user_id], one=True)
+    user = query_db('SELECT * FROM users WHERE id = ?', [user_id], one=True)
     if not user:
         return None
     return User(user['id'], user['username'], user['is_superuser'])
@@ -77,6 +77,8 @@ def query_db(query, args=(), one=False):
         else:
             # SQLite
             cur = conn.cursor()
+            # Se a consulta contém %s (placeholder do PostgreSQL), mude para ? (placeholder do SQLite)
+            query = query.replace('%s', '?')
         
         cur.execute(query, args)
         
@@ -211,7 +213,7 @@ def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        user = query_db('SELECT * FROM users WHERE username = %s AND password = %s',
+        user = query_db('SELECT * FROM users WHERE username = ? AND password = ?',
                        [username, password], one=True)
         if user:
             login_user(User(user['id'], user['username'], user['is_superuser']))
@@ -236,12 +238,12 @@ def register():
             flash('As senhas não coincidem.')
             return redirect(url_for('register'))
             
-        existing_user = query_db('SELECT * FROM users WHERE username = %s', [username], one=True)
+        existing_user = query_db('SELECT * FROM users WHERE username = ?', [username], one=True)
         if existing_user:
             flash('Nome de usuário já existe.')
             return redirect(url_for('register'))
             
-        query_db('INSERT INTO users (username, password, is_superuser) VALUES (%s, %s, %s)',
+        query_db('INSERT INTO users (username, password, is_superuser) VALUES (?, ?, ?)',
                 [username, password, False])
         flash('Usuário criado com sucesso!')
         return redirect(url_for('login'))
@@ -257,14 +259,14 @@ def forgot_password():
             flash('Por favor, informe o nome de usuário.')
             return redirect(url_for('forgot_password'))
             
-        user = query_db('SELECT * FROM users WHERE username = %s', [username], one=True)
+        user = query_db('SELECT * FROM users WHERE username = ?', [username], one=True)
         if not user:
             flash('Usuário não encontrado.')
             return redirect(url_for('forgot_password'))
             
         # Em um sistema real, aqui seria enviado um e-mail com link de redefinição
         # Como é uma versão simplificada, apenas resetamos para uma senha padrão
-        query_db('UPDATE users SET password = %s WHERE id = %s', ['123456', user['id']])
+        query_db('UPDATE users SET password = ? WHERE id = ?', ['123456', user['id']])
         flash('Senha redefinida para: 123456. Por favor, altere sua senha após o login.')
         return redirect(url_for('login'))
         
@@ -315,11 +317,11 @@ def update_user(user_id):
     try:
         if password:
             # Se uma nova senha foi fornecida, atualize-a também
-            query_db('UPDATE users SET username = %s, is_superuser = %s, password = %s WHERE id = %s', 
+            query_db('UPDATE users SET username = ?, is_superuser = ?, password = ? WHERE id = ?', 
                     [username, is_superuser, password, user_id])
         else:
             # Caso contrário, apenas atualize o nome de usuário e o status de superusuário
-            query_db('UPDATE users SET username = %s, is_superuser = %s WHERE id = %s', 
+            query_db('UPDATE users SET username = ?, is_superuser = ? WHERE id = ?', 
                     [username, is_superuser, user_id])
         return jsonify({'success': True})
     except Exception as e:
@@ -336,7 +338,7 @@ def delete_user(user_id):
         flash('Você não pode excluir sua própria conta!')
         return redirect(url_for('admin'))
         
-    query_db('DELETE FROM users WHERE id = %s', [user_id])
+    query_db('DELETE FROM users WHERE id = ?', [user_id])
     flash('Usuário excluído com sucesso!')
     return redirect(url_for('admin'))
 
@@ -380,7 +382,7 @@ def submit():
         query = '''
             INSERT INTO registros 
             (data, demanda, assunto, status, local, direcionamentos, ultimo_editor, data_ultima_edicao) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         '''
         query_db(query, [
             data, demanda, assunto, status, local, direcionamentos, 
