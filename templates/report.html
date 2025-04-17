@@ -1,12 +1,21 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="container mx-auto px-4 py-8 bg-gray-50 dark:bg-gray-900 min-h-screen transition-all duration-200">
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white transition-colors duration-200">Relatório de Demandas</h1>
-        <a href="{{ url_for('form') }}" 
-           class="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-all duration-200 hover:shadow-lg transform hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-blue-400">
-            <i class="fas fa-plus mr-1"></i>Nova Demanda
-        </a>
+    <div class="mb-8 flex flex-col sm:flex-row justify-between items-center">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-0 transition-colors duration-200">Relatório de Demandas</h1>
+        <div class="flex items-center space-x-2">
+            <a href="{{ url_for('form') }}" class="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-all duration-200 hover:shadow-lg transform hover:scale-[1.02] active:scale-[0.98]">
+                <i class="fas fa-plus mr-2"></i>Nova Demanda
+            </a>
+            {% if current_user.is_superuser %}
+            <a href="{{ url_for('import_csv') }}" class="bg-green-600 dark:bg-green-700 hover:bg-green-700 dark:hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition-all duration-200 hover:shadow-lg transform hover:scale-[1.02] active:scale-[0.98]">
+                <i class="fas fa-file-import mr-2"></i>Importar CSV
+            </a>
+            {% endif %}
+            <button id="refreshButton" class="bg-purple-600 dark:bg-purple-700 hover:bg-purple-700 dark:hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition-all duration-200 hover:shadow-lg transform hover:scale-[1.02] active:scale-[0.98]">
+                <i class="fas fa-sync-alt mr-2"></i>Atualizar
+            </button>
+        </div>
     </div>
 
     <div class="mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md transition-all duration-200">
@@ -28,66 +37,121 @@
                 </select>
             </div>
         </div>
+
+        <!-- Pesquisa Avançada Integrada -->
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-2">
+            <div class="flex items-center justify-between mb-2">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white transition-colors duration-200">Pesquisa Avançada</h2>
+                <button id="toggleSearch" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors duration-200">
+                    <i class="fas fa-chevron-down" id="searchIcon"></i>
+                </button>
+            </div>
+            
+            <div id="searchContainer" class="hidden">
+                <form action="{{ url_for('search') }}" method="post" class="mt-3">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="termo" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 transition-colors duration-200">Termo de Pesquisa</label>
+                            <input type="text" id="termo" name="termo" 
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200"
+                                placeholder="Pesquisar por demanda, assunto, local...">
+                        </div>
+                        <div>
+                            <label for="status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 transition-colors duration-200">Status</label>
+                            <select id="status" name="status" 
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200">
+                                <option value="">Todos</option>
+                                {% for status in status_list %}
+                                <option value="{{ status }}">{{ status }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="data_inicio" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 transition-colors duration-200">Data Início</label>
+                            <input type="date" id="data_inicio" name="data_inicio" 
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200">
+                        </div>
+                        <div>
+                            <label for="data_fim" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 transition-colors duration-200">Data Fim</label>
+                            <input type="date" id="data_fim" name="data_fim" 
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200">
+                        </div>
+                    </div>
+                    <div class="mt-4 flex justify-end">
+                        <button type="submit" 
+                                class="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-all duration-200 hover:shadow-lg transform hover:scale-[1.02] active:scale-[0.98]">
+                            <i class="fas fa-search mr-2"></i>Pesquisar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 
     {% if registros %}
-    <div class="relative overflow-x-auto">
-        <table class="w-full bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden transition-all duration-200">
-            <thead class="bg-gray-100 dark:bg-gray-700 transition-colors duration-200">
-                <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">Data</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">Demanda</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">Assunto</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">Local</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">Status</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">Ações</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200 dark:divide-gray-700 transition-colors duration-200">
-                {% for registro in registros %}
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200" data-demanda-row
-                    data-demanda="{{ registro['demanda'] }}"
-                    data-assunto="{{ registro['assunto'] }}"
-                    data-status="{{ registro['status'] }}">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white transition-colors duration-200">
-                        {{ registro['data'] }}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white transition-colors duration-200">
-                        {{ registro['demanda'] }}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white transition-colors duration-200">
-                        {{ registro['assunto'] }}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white transition-colors duration-200">
-                        {{ registro['local'] }}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm transition-colors duration-200">
-                        <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
-                            {% if registro['status'] == 'Em andamento' %}
-                                bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800
-                            {% elif registro['status'] == 'Concluído' %}
-                                bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800
-                            {% elif registro['status'] == 'Pendente' %}
-                                bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800
-                            {% elif registro['status'] == 'Cancelado' %}
-                                bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800
-                            {% endif %}
-                        ">
-                            {{ registro['status'] }}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white transition-colors duration-200">
-                        <button type="button"
-                                onclick="showDetails('{{ registro.demanda }}', '{{ registro.data }}', '{{ registro.assunto }}', '{{ registro.local }}', '{{ registro.direcionamentos }}', '{{ registro.status }}', '{{ registro.ultimo_editor }}', '{{ registro.data_ultima_edicao }}')" 
-                                class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 mr-2 transition-colors duration-200">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+        <div class="relative overflow-x-auto">
+            <div class="mb-2 text-sm text-gray-500 dark:text-gray-400 transition-colors duration-200">
+                <span id="registrosCounter">Mostrando {{ registros|length }} registro(s)</span>
+            </div>
+            <table class="w-full bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden transition-all duration-200">
+                <thead class="bg-gray-100 dark:bg-gray-700 transition-colors duration-200">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">Data</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">Demanda</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">Assunto</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">Local</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">Ações</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-gray-700 transition-colors duration-200">
+                    {% for registro in registros %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200" data-demanda-row
+                        data-demanda="{{ registro['demanda'] }}"
+                        data-assunto="{{ registro['assunto'] }}"
+                        data-status="{{ registro['status'] }}">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white transition-colors duration-200">
+                            {{ registro['data'] }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white transition-colors duration-200">
+                            {{ registro['demanda'] }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white transition-colors duration-200">
+                            {{ registro['assunto'] }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white transition-colors duration-200">
+                            {{ registro['local'] }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm transition-colors duration-200">
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                {% if registro['status'] == 'Em andamento' %}
+                                    bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800
+                                {% elif registro['status'] == 'Concluído' %}
+                                    bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800
+                                {% elif registro['status'] == 'Pendente' %}
+                                    bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800
+                                {% elif registro['status'] == 'Cancelado' %}
+                                    bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800
+                                {% endif %}
+                            ">
+                                {{ registro['status'] }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white transition-colors duration-200">
+                            <div class="flex items-center justify-center space-x-2">
+                                <button class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 focus:outline-none transition-colors duration-200" onclick="showDetails('{{ registro.demanda }}', '{{ registro.data }}', '{{ registro.assunto }}', '{{ registro.local }}', '{{ registro.direcionamentos }}', '{{ registro.status }}', '{{ registro.ultimo_editor }}', '{{ registro.data_ultima_edicao }}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <a href="{{ url_for('edit_registro', registro_id=registro.id) }}" class="text-yellow-600 dark:text-yellow-400 hover:text-yellow-800 dark:hover:text-yellow-300 focus:outline-none transition-colors duration-200">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     {% else %}
     <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 text-center transition-all duration-200">
         <p class="text-gray-600 dark:text-gray-400 text-lg transition-colors duration-200">Nenhum registro encontrado.</p>
@@ -139,38 +203,13 @@
 </div>
 
 <script>
-// Função para filtrar registros na tabela
-document.getElementById('searchInput').addEventListener('input', filterRegistros);
-document.getElementById('statusFilter').addEventListener('change', filterRegistros);
-
-function filterRegistros() {
-    const searchValue = document.getElementById('searchInput').value.toLowerCase();
-    const statusValue = document.getElementById('statusFilter').value;
-    const rows = document.querySelectorAll('[data-demanda-row]');
-    
-    rows.forEach(row => {
-        const demanda = row.getAttribute('data-demanda').toLowerCase();
-        const assunto = row.getAttribute('data-assunto').toLowerCase();
-        const status = row.getAttribute('data-status');
-        
-        const matchesSearch = demanda.includes(searchValue) || assunto.includes(searchValue);
-        const matchesStatus = statusValue === '' || status === statusValue;
-        
-        if (matchesSearch && matchesStatus) {
-            row.classList.remove('hidden');
-        } else {
-            row.classList.add('hidden');
-        }
-    });
-}
-
-// Funções do modal
-function showDetails(demanda, data, assunto, local, direcionamentos, status, ultimo_editor, data_ultima_edicao) {
+// Função para mostrar detalhes do registro
+function showDetails(demanda, data, assunto, local, direcionamentos, status, ultimoEditor, dataUltimaEdicao) {
     document.getElementById('modalTitle').textContent = demanda;
     document.getElementById('modalData').textContent = data;
     document.getElementById('modalAssunto').textContent = assunto;
-    document.getElementById('modalLocal').textContent = local;
-    document.getElementById('modalDirecionamentos').textContent = direcionamentos || 'Não informado';
+    document.getElementById('modalLocal').textContent = local || 'N/A';
+    document.getElementById('modalDirecionamentos').textContent = direcionamentos || 'N/A';
     
     const statusEl = document.getElementById('modalStatus');
     statusEl.textContent = status;
@@ -189,8 +228,8 @@ function showDetails(demanda, data, assunto, local, direcionamentos, status, ult
     }
     
     // Formatar a data de última edição
-    const ultimaEdicao = ultimo_editor ? 
-        `Por ${ultimo_editor} em ${new Date(data_ultima_edicao).toLocaleString()}` : 
+    const ultimaEdicao = ultimoEditor ? 
+        `Por ${ultimoEditor} em ${dataUltimaEdicao ? new Date(dataUltimaEdicao).toLocaleString() : 'Não disponível'}` : 
         'Não disponível';
     document.getElementById('modalUltimaEdicao').textContent = ultimaEdicao;
     
@@ -205,6 +244,7 @@ function showDetails(demanda, data, assunto, local, direcionamentos, status, ult
     }, 10);
 }
 
+// Função para fechar o modal
 function closeModal() {
     const modal = document.getElementById('detailsModal');
     const modalContent = document.getElementById('modalContent');
@@ -217,18 +257,125 @@ function closeModal() {
     }, 200);
 }
 
-// Fechar o modal quando clicar fora dele
-document.getElementById('detailsModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeModal();
+// Pesquisa em tempo real na tabela
+document.getElementById('searchInput').addEventListener('input', function(e) {
+    const searchValue = e.target.value.toLowerCase();
+    const rows = document.querySelectorAll('[data-demanda-row]');
+    
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        const demanda = row.getAttribute('data-demanda').toLowerCase();
+        const assunto = row.getAttribute('data-assunto').toLowerCase();
+        const status = row.getAttribute('data-status').toLowerCase();
+        
+        if (demanda.includes(searchValue) || assunto.includes(searchValue) || status.includes(searchValue)) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    // Atualiza o contador
+    document.getElementById('registrosCounter').textContent = `Mostrando ${visibleCount} registro(s)`;
+});
+
+// Filtrar por status
+document.getElementById('statusFilter').addEventListener('change', function(e) {
+    const statusValue = e.target.value.toLowerCase();
+    const rows = document.querySelectorAll('[data-demanda-row]');
+    
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        const status = row.getAttribute('data-status').toLowerCase();
+        
+        if (statusValue === '' || status === statusValue) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    // Atualiza o contador
+    document.getElementById('registrosCounter').textContent = `Mostrando ${visibleCount} registro(s)`;
+});
+
+// Toggle formulário de pesquisa avançada
+document.getElementById('toggleSearch').addEventListener('click', function() {
+    const container = document.getElementById('searchContainer');
+    const icon = document.getElementById('searchIcon');
+    
+    if (container.classList.contains('hidden')) {
+        container.classList.remove('hidden');
+        icon.classList.remove('fa-chevron-down');
+        icon.classList.add('fa-chevron-up');
+    } else {
+        container.classList.add('hidden');
+        icon.classList.remove('fa-chevron-up');
+        icon.classList.add('fa-chevron-down');
     }
 });
 
-// Fechar o modal com a tecla ESC
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && !document.getElementById('detailsModal').classList.contains('hidden')) {
-        closeModal();
-    }
+// Funcionalidade de atualização via AJAX
+document.getElementById('refreshButton').addEventListener('click', function() {
+    const button = this;
+    const originalContent = button.innerHTML;
+    
+    // Mostrar ícone de carregamento
+    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Atualizando...';
+    button.disabled = true;
+    
+    // Fazer a requisição AJAX
+    fetch('/refresh_data', {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Erro na resposta do servidor');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            // Mostrar notificação de sucesso
+            const notification = document.createElement('div');
+            notification.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50 transform transition-transform duration-300 translate-y-20';
+            notification.innerHTML = `<i class="fas fa-check-circle mr-2"></i>${data.message || 'Dados atualizados com sucesso!'}`;
+            document.body.appendChild(notification);
+            
+            // Animar a notificação
+            setTimeout(() => {
+                notification.classList.remove('translate-y-20');
+            }, 10);
+            
+            // Remover a notificação após alguns segundos
+            setTimeout(() => {
+                notification.classList.add('translate-y-20');
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+            
+            // Recarregar a página para mostrar os dados atualizados
+            location.reload();
+        } else {
+            alert(data.message || 'Erro ao atualizar os dados.');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao atualizar os dados. Por favor, tente novamente.');
+    })
+    .finally(() => {
+        // Restaurar o botão
+        button.innerHTML = originalContent;
+        button.disabled = false;
+    });
 });
 </script>
 {% endblock %}
