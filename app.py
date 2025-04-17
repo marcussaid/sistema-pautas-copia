@@ -81,9 +81,9 @@ def process_csv_data(df):
     
     return df
 
-@app.route('/import_csv', methods=['GET', 'POST'])
+@app.route('/importar_csv', methods=['GET', 'POST'])
 @login_required
-def import_csv():
+def importar_csv():
     if request.method == 'POST':
         if 'confirm' in request.form:
             # Processa o arquivo temporário salvo
@@ -881,7 +881,8 @@ def report():
         query += ' LIMIT %s OFFSET %s'
         params.extend([per_page, offset])
 
-        # Executa a query
+        # Log para depuração
+        print(f"Executando consulta: {query} com parâmetros: {params}")
         registros = query_db(query, params)
         
         return render_template('report.html',
