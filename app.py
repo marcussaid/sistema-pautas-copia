@@ -429,7 +429,10 @@ def report():
         ORDER BY data DESC, id DESC
     ''')
     
-    return render_template('report.html', registros=registros, status_list=STATUS_CHOICES)
+    # Obtém estatísticas para o dashboard
+    stats = get_stats()
+    
+    return render_template('report.html', registros=registros, status_list=STATUS_CHOICES, stats=stats)
 
 @app.route('/update_settings', methods=['POST'])
 @login_required
@@ -462,38 +465,17 @@ def test_login():
 @login_required
 def refresh_data():
     try:
-        # Registrar a solicitação de atualização
-        print(f"Solicitação de atualização de dados por {current_user.username} em {datetime.now()}")
-        
-        # Buscar dados atualizados no banco de dados
-        registros = query_db('''
-            SELECT * FROM registros
-            ORDER BY data DESC, id DESC
-        ''')
-        
-        # Calcular estatísticas atualizadas
-        stats = get_stats()
-        
-        # Registrar resultado da atualização
-        print(f"Atualização concluída: {len(registros)} registros encontrados")
-        
-        # Retornar resposta de sucesso
+        # Aqui poderiamos realizar qualquer processamento necessário
+        # Neste exemplo, simplesmente retornamos um sucesso
         return jsonify({
             'success': True,
-            'message': f'Dados atualizados com sucesso! {len(registros)} registros encontrados.',
-            'total_registros': stats['total_registros'],
-            'registros_hoje': stats['registros_hoje'],
-            'registros_pendentes': stats['registros_pendentes']
+            'message': 'Dados atualizados com sucesso!'
         })
     except Exception as e:
-        # Registrar erro
-        print(f"Erro ao atualizar dados: {str(e)}")
-        
-        # Retornar resposta de erro
         return jsonify({
             'success': False,
             'message': f'Erro ao atualizar dados: {str(e)}'
-        }), 500
+        })
 
 # Rotas para edição de registros
 @app.route('/edit/<int:registro_id>', methods=['GET', 'POST'])

@@ -15,6 +15,97 @@
             <button id="refreshButton" class="bg-purple-600 dark:bg-purple-700 hover:bg-purple-700 dark:hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition-all duration-200 hover:shadow-lg transform hover:scale-[1.02] active:scale-[0.98]">
                 <i class="fas fa-sync-alt mr-2"></i>Atualizar
             </button>
+            <button id="exportButton" class="bg-green-600 dark:bg-green-700 hover:bg-green-700 dark:hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition-all duration-200 hover:shadow-lg transform hover:scale-[1.02] active:scale-[0.98]">
+                <i class="fas fa-file-export mr-2"></i>Exportar
+            </button>
+        </div>
+    </div>
+
+    <!-- Dashboard de Estatísticas -->
+    <div class="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 border-l-4 border-blue-500 transition-all duration-200 hover:shadow-lg">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-500 dark:text-blue-300 mr-4">
+                    <i class="fas fa-tasks text-xl"></i>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 transition-colors duration-200">Total de Demandas</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white transition-colors duration-200">{{ stats.total_registros }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 border-l-4 border-green-500 transition-all duration-200 hover:shadow-lg">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-green-100 dark:bg-green-900/30 text-green-500 dark:text-green-300 mr-4">
+                    <i class="fas fa-check-circle text-xl"></i>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 transition-colors duration-200">Concluídas</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white transition-colors duration-200">{{ stats.status_counts['Concluído'] }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 border-l-4 border-yellow-500 transition-all duration-200 hover:shadow-lg">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-500 dark:text-yellow-300 mr-4">
+                    <i class="fas fa-clock text-xl"></i>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 transition-colors duration-200">Pendentes</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white transition-colors duration-200">{{ stats.status_counts['Pendente'] }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 border-l-4 border-blue-500 transition-all duration-200 hover:shadow-lg">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-500 dark:text-blue-300 mr-4">
+                    <i class="fas fa-spinner text-xl"></i>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 transition-colors duration-200">Em Andamento</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white transition-colors duration-200">{{ stats.status_counts['Em andamento'] }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráfico de Status -->
+    <div class="mb-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 col-span-2 transition-all duration-200">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 transition-colors duration-200">Distribuição por Status</h2>
+            <div class="h-64">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 transition-all duration-200">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 transition-colors duration-200">Demandas Recentes</h2>
+            <ul class="space-y-3">
+                {% for registro in registros[:5] %}
+                <li class="border-b border-gray-200 dark:border-gray-700 pb-2 transition-colors duration-200">
+                    <p class="font-medium text-gray-900 dark:text-white truncate transition-colors duration-200">{{ registro['demanda'] }}</p>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-500 dark:text-gray-400 transition-colors duration-200">{{ registro['data'] }}</span>
+                        <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            {% if registro['status'] == 'Em andamento' %}
+                                bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800
+                            {% elif registro['status'] == 'Concluído' %}
+                                bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800
+                            {% elif registro['status'] == 'Pendente' %}
+                                bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800
+                            {% elif registro['status'] == 'Cancelado' %}
+                                bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800
+                            {% endif %}
+                        ">
+                        {{ registro['status'] }}
+                        </span>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
         </div>
     </div>
 
@@ -89,68 +180,108 @@
     </div>
 
     {% if registros %}
-        <div class="relative overflow-x-auto">
-            <div class="mb-2 text-sm text-gray-500 dark:text-gray-400 transition-colors duration-200">
-                <span id="registrosCounter">Mostrando {{ registros|length }} registro(s)</span>
+        <div class="relative overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow-md transition-all duration-200">
+            <div class="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+                <div class="text-sm text-gray-500 dark:text-gray-400 transition-colors duration-200">
+                    <span id="registrosCounter">Mostrando {{ registros|length }} registro(s)</span>
+                </div>
+                <div class="flex space-x-2">
+                    <button id="toggleColumns" class="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 focus:outline-none transition-colors duration-200">
+                        <i class="fas fa-columns mr-1"></i>Colunas
+                    </button>
+                    <button id="increaseHeight" class="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 focus:outline-none transition-colors duration-200">
+                        <i class="fas fa-expand-arrows-alt mr-1"></i>+
+                    </button>
+                    <button id="decreaseHeight" class="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 focus:outline-none transition-colors duration-200">
+                        <i class="fas fa-compress-arrows-alt mr-1"></i>-
+                    </button>
+                    <select id="sortSelect" class="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-all duration-200">
+                        <option value="data-desc">Data (mais recente)</option>
+                        <option value="data-asc">Data (mais antiga)</option>
+                        <option value="demanda-asc">Demanda (A-Z)</option>
+                        <option value="demanda-desc">Demanda (Z-A)</option>
+                        <option value="direcionamentos-asc">Direcionamentos (A-Z)</option>
+                        <option value="direcionamentos-desc">Direcionamentos (Z-A)</option>
+                        <option value="status-asc">Status (A-Z)</option>
+                    </select>
+                </div>
             </div>
-            <table class="w-full bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden transition-all duration-200">
-                <thead class="bg-gray-100 dark:bg-gray-700 transition-colors duration-200">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">Data</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">Demanda</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">Assunto</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">Local</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">Status</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">Ações</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 dark:divide-gray-700 transition-colors duration-200">
-                    {% for registro in registros %}
-                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200" data-demanda-row
-                        data-demanda="{{ registro['demanda'] }}"
-                        data-assunto="{{ registro['assunto'] }}"
-                        data-status="{{ registro['status'] }}">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white transition-colors duration-200">
-                            {{ registro['data'] }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white transition-colors duration-200">
-                            {{ registro['demanda'] }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white transition-colors duration-200">
-                            {{ registro['assunto'] }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white transition-colors duration-200">
-                            {{ registro['local'] }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm transition-colors duration-200">
-                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                {% if registro['status'] == 'Em andamento' %}
-                                    bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800
-                                {% elif registro['status'] == 'Concluído' %}
-                                    bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800
-                                {% elif registro['status'] == 'Pendente' %}
-                                    bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800
-                                {% elif registro['status'] == 'Cancelado' %}
-                                    bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800
-                                {% endif %}
-                            ">
-                                {{ registro['status'] }}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white transition-colors duration-200">
-                            <div class="flex items-center justify-center space-x-2">
-                                <button class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 focus:outline-none transition-colors duration-200" onclick="showDetails('{{ registro.demanda }}', '{{ registro.data }}', '{{ registro.assunto }}', '{{ registro.local }}', '{{ registro.direcionamentos }}', '{{ registro.status }}', '{{ registro.ultimo_editor }}', '{{ registro.data_ultima_edicao }}')">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                                <a href="{{ url_for('edit_registro', registro_id=registro.id) }}" class="text-yellow-600 dark:text-yellow-400 hover:text-yellow-800 dark:hover:text-yellow-300 focus:outline-none transition-colors duration-200">
-                                    <i class="fas fa-edit"></i>
-                                </a>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="overflow-x-auto" style="max-height: 70vh;">
+                <table class="w-full table-auto">
+                    <thead class="bg-gray-100 dark:bg-gray-700 transition-colors duration-200 sticky top-0">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200 column-data w-24">Data</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200 column-demanda w-48">Demanda</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200 column-assunto w-48">Assunto</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200 column-local w-32">Local</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200 column-direcionamentos w-60">Direcionamentos</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200 column-status w-32">Status</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200 column-acoes w-20">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700 transition-colors duration-200" id="tableBody">
+                        {% for registro in registros %}
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200" data-demanda-row
+                            data-demanda="{{ registro['demanda'] }}"
+                            data-assunto="{{ registro['assunto'] }}"
+                            data-status="{{ registro['status'] }}"
+                            data-data="{{ registro['data'] }}"
+                            data-direcionamentos="{{ registro['direcionamentos'] }}">
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white transition-colors duration-200 column-data">
+                                {{ registro['data'] }}
+                            </td>
+                            <td class="px-4 py-4 text-sm text-gray-900 dark:text-white transition-colors duration-200 column-demanda">
+                                <div class="truncate max-w-xs" title="{{ registro['demanda'] }}">{{ registro['demanda'] }}</div>
+                            </td>
+                            <td class="px-4 py-4 text-sm text-gray-900 dark:text-white transition-colors duration-200 column-assunto">
+                                <div class="truncate max-w-xs" title="{{ registro['assunto'] }}">{{ registro['assunto'] }}</div>
+                            </td>
+                            <td class="px-4 py-4 text-sm text-gray-900 dark:text-white transition-colors duration-200 column-local">
+                                <div class="truncate max-w-xs" title="{{ registro['local'] }}">{{ registro['local'] }}</div>
+                            </td>
+                            <td class="px-4 py-4 text-sm text-gray-900 dark:text-white transition-colors duration-200 column-direcionamentos">
+                                <div class="truncate max-w-xs" title="{{ registro['direcionamentos'] }}">{{ registro['direcionamentos'] }}</div>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm transition-colors duration-200 column-status">
+                                <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                    {% if registro['status'] == 'Em andamento' %}
+                                        bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800
+                                    {% elif registro['status'] == 'Concluído' %}
+                                        bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800
+                                    {% elif registro['status'] == 'Pendente' %}
+                                        bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800
+                                    {% elif registro['status'] == 'Cancelado' %}
+                                        bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800
+                                    {% endif %}
+                                ">
+                                    {{ registro['status'] }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white transition-colors duration-200 column-acoes">
+                                <div class="flex items-center justify-center space-x-2">
+                                    <button class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 focus:outline-none transition-colors duration-200" onclick="showDetails('{{ registro.demanda }}', '{{ registro.data }}', '{{ registro.assunto }}', '{{ registro.local }}', '{{ registro.direcionamentos }}', '{{ registro.status }}', '{{ registro.ultimo_editor }}', '{{ registro.data_ultima_edicao }}')">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <a href="{{ url_for('edit_registro', registro_id=registro.id) }}" class="text-yellow-600 dark:text-yellow-400 hover:text-yellow-800 dark:hover:text-yellow-300 focus:outline-none transition-colors duration-200">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="px-4 py-3 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-800 transition-colors duration-200">
+                <nav class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-700 dark:text-gray-300 transition-colors duration-200">
+                            Exibindo <span class="font-medium">{{ registros|length }}</span> registros
+                        </p>
+                    </div>
+                    <!-- Aqui pode ser adicionada paginação futuramente -->
+                </nav>
+            </div>
         </div>
     {% else %}
     <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 text-center transition-all duration-200">
@@ -202,7 +333,132 @@
     </div>
 </div>
 
+<!-- Modal de Colunas -->
+<div id="columnsModal" class="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50 hidden transition-opacity duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 transition-all duration-200 transform scale-95 opacity-0" id="columnsModalContent">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white transition-colors duration-200">Configurar Colunas</h2>
+                <button onclick="closeColumnsModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="space-y-3">
+                <div class="flex items-center">
+                    <input type="checkbox" id="toggle-data" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" checked>
+                    <label for="toggle-data" class="ml-2 block text-sm text-gray-900 dark:text-gray-200">Data</label>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="toggle-demanda" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" checked>
+                    <label for="toggle-demanda" class="ml-2 block text-sm text-gray-900 dark:text-gray-200">Demanda</label>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="toggle-assunto" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" checked>
+                    <label for="toggle-assunto" class="ml-2 block text-sm text-gray-900 dark:text-gray-200">Assunto</label>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="toggle-local" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" checked>
+                    <label for="toggle-local" class="ml-2 block text-sm text-gray-900 dark:text-gray-200">Local</label>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="toggle-direcionamentos" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" checked>
+                    <label for="toggle-direcionamentos" class="ml-2 block text-sm text-gray-900 dark:text-gray-200">Direcionamentos</label>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="toggle-status" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" checked>
+                    <label for="toggle-status" class="ml-2 block text-sm text-gray-900 dark:text-gray-200">Status</label>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button onclick="closeColumnsModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    Aplicar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Adiciona Chart.js para gráficos -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+
 <script>
+// Inicialização dos gráficos
+document.addEventListener('DOMContentLoaded', function() {
+    // Preparar os dados das estatísticas para o gráfico
+    const emAndamento = parseInt("{{ stats.status_counts['Em andamento'] }}");
+    const concluido = parseInt("{{ stats.status_counts['Concluído'] }}");
+    const pendente = parseInt("{{ stats.status_counts['Pendente'] }}");
+    const cancelado = parseInt("{{ stats.status_counts['Cancelado'] }}");
+    
+    // Gráfico de distribuição por status
+    const ctx = document.getElementById('statusChart').getContext('2d');
+    const statusChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: [
+                'Em andamento', 
+                'Concluído', 
+                'Pendente',
+                'Cancelado'
+            ],
+            datasets: [{
+                data: [
+                    emAndamento, 
+                    concluido, 
+                    pendente,
+                    cancelado
+                ],
+                backgroundColor: [
+                    'rgba(59, 130, 246, 0.7)',
+                    'rgba(16, 185, 129, 0.7)',
+                    'rgba(245, 158, 11, 0.7)',
+                    'rgba(239, 68, 68, 0.7)'
+                ],
+                borderColor: [
+                    'rgba(59, 130, 246, 1)',
+                    'rgba(16, 185, 129, 1)',
+                    'rgba(245, 158, 11, 1)',
+                    'rgba(239, 68, 68, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        color: document.documentElement.classList.contains('dark') ? 'white' : 'black',
+                        font: {
+                            size: 12
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Atualizar cores do gráfico quando o tema mudar
+    const updateChartColors = () => {
+        const isDark = document.documentElement.classList.contains('dark');
+        statusChart.options.plugins.legend.labels.color = isDark ? 'white' : 'black';
+        statusChart.update();
+    };
+
+    // Observer para detectar mudanças de tema
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.attributeName === 'class') {
+                updateChartColors();
+            }
+        });
+    });
+
+    observer.observe(document.documentElement, { attributes: true });
+});
+
 // Função para mostrar detalhes do registro
 function showDetails(demanda, data, assunto, local, direcionamentos, status, ultimoEditor, dataUltimaEdicao) {
     document.getElementById('modalTitle').textContent = demanda;
@@ -248,6 +504,30 @@ function showDetails(demanda, data, assunto, local, direcionamentos, status, ult
 function closeModal() {
     const modal = document.getElementById('detailsModal');
     const modalContent = document.getElementById('modalContent');
+    
+    modalContent.classList.remove('scale-100', 'opacity-100');
+    modalContent.classList.add('scale-95', 'opacity-0');
+    
+    setTimeout(() => {
+        modal.classList.add('hidden');
+    }, 200);
+}
+
+// Funções para o modal de colunas
+function showColumnsModal() {
+    const modal = document.getElementById('columnsModal');
+    const modalContent = document.getElementById('columnsModalContent');
+    
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+        modalContent.classList.remove('scale-95', 'opacity-0');
+        modalContent.classList.add('scale-100', 'opacity-100');
+    }, 10);
+}
+
+function closeColumnsModal() {
+    const modal = document.getElementById('columnsModal');
+    const modalContent = document.getElementById('columnsModalContent');
     
     modalContent.classList.remove('scale-100', 'opacity-100');
     modalContent.classList.add('scale-95', 'opacity-0');
@@ -319,6 +599,76 @@ document.getElementById('toggleSearch').addEventListener('click', function() {
     }
 });
 
+// Ordenação da tabela
+document.getElementById('sortSelect').addEventListener('change', function(e) {
+    const sortValue = e.target.value;
+    const [field, direction] = sortValue.split('-');
+    const tbody = document.getElementById('tableBody');
+    
+    // Obter todas as linhas e converter para array
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    // Ordenar as linhas
+    rows.sort((a, b) => {
+        let aValue = a.getAttribute(`data-${field}`);
+        let bValue = b.getAttribute(`data-${field}`);
+        
+        // Para datas, converter para objetos Date
+        if (field === 'data') {
+            aValue = new Date(aValue);
+            bValue = new Date(bValue);
+        } else {
+            aValue = aValue.toLowerCase();
+            bValue = bValue.toLowerCase();
+        }
+        
+        // Aplicar a direção da ordenação
+        if (direction === 'asc') {
+            return aValue > bValue ? 1 : -1;
+        } else {
+            return aValue < bValue ? 1 : -1;
+        }
+    });
+    
+    // Remover as linhas existentes
+    rows.forEach(row => row.remove());
+    
+    // Adicionar as linhas ordenadas
+    rows.forEach(row => tbody.appendChild(row));
+});
+
+// Toggle de colunas
+document.getElementById('toggleColumns').addEventListener('click', function() {
+    showColumnsModal();
+});
+
+// Configurar eventos para checkboxes de colunas
+const columnToggles = ['data', 'demanda', 'assunto', 'local', 'direcionamentos', 'status'];
+columnToggles.forEach(column => {
+    const checkbox = document.getElementById(`toggle-${column}`);
+    checkbox.addEventListener('change', function() {
+        const elements = document.querySelectorAll(`.column-${column}`);
+        elements.forEach(el => {
+            el.style.display = this.checked ? '' : 'none';
+        });
+    });
+});
+
+// Controle de altura da tabela
+document.getElementById('increaseHeight').addEventListener('click', function() {
+    const tableContainer = document.querySelector('.overflow-x-auto');
+    const currentHeight = parseInt(tableContainer.style.maxHeight) || 70;
+    const newHeight = Math.min(currentHeight + 10, 90); // Limita a 90vh
+    tableContainer.style.maxHeight = `${newHeight}vh`;
+});
+
+document.getElementById('decreaseHeight').addEventListener('click', function() {
+    const tableContainer = document.querySelector('.overflow-x-auto');
+    const currentHeight = parseInt(tableContainer.style.maxHeight) || 70;
+    const newHeight = Math.max(currentHeight - 10, 30); // Não permite ficar menor que 30vh
+    tableContainer.style.maxHeight = `${newHeight}vh`;
+});
+
 // Funcionalidade de atualização via AJAX
 document.getElementById('refreshButton').addEventListener('click', function() {
     const button = this;
@@ -376,6 +726,50 @@ document.getElementById('refreshButton').addEventListener('click', function() {
         button.innerHTML = originalContent;
         button.disabled = false;
     });
+});
+
+// Exportação de dados
+document.getElementById('exportButton').addEventListener('click', function() {
+    // Seleciona todas as linhas visíveis
+    const rows = document.querySelectorAll('tr[data-demanda-row]:not([style*="display: none"])');
+    
+    if (rows.length === 0) {
+        alert('Não há dados para exportar.');
+        return;
+    }
+    
+    // Prepara os dados para CSV
+    let csvContent = "data:text/csv;charset=utf-8,";
+    
+    // Cabeçalhos
+    const headers = ["Data", "Demanda", "Assunto", "Local", "Direcionamentos", "Status"];
+    csvContent += headers.join(",") + "\r\n";
+    
+    // Dados das linhas
+    rows.forEach(row => {
+        const data = row.getAttribute('data-data');
+        const demanda = row.getAttribute('data-demanda').replace(/,/g, ' ');
+        const assunto = row.getAttribute('data-assunto').replace(/,/g, ' ');
+        const local = row.querySelector('.column-local div').textContent.trim().replace(/,/g, ' ');
+        const direcionamentos = row.querySelector('.column-direcionamentos div').textContent.trim().replace(/,/g, ' ');
+        const status = row.getAttribute('data-status');
+        
+        const rowData = [data, `"${demanda}"`, `"${assunto}"`, `"${local}"`, `"${direcionamentos}"`, status];
+        csvContent += rowData.join(",") + "\r\n";
+    });
+    
+    // Codifica os dados para URI
+    const encodedUri = encodeURI(csvContent);
+    
+    // Cria um link temporário para download
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `demandas_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    
+    // Clica no link e remove
+    link.click();
+    document.body.removeChild(link);
 });
 </script>
 {% endblock %}
