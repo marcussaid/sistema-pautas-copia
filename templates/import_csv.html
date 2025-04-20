@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 {% block content %}
 <div class="container mx-auto px-4 py-8 bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors">
     <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg transition-colors">
@@ -14,7 +14,7 @@
                 <li>A primeira linha deve conter os nomes das colunas</li>
             </ul>
             <div class="mt-4">
-                <a href="{{ url_for('static', filename='exemplo_importacao.csv') }}" 
+                <a href="{{ url_for('gerar_exemplo_csv') }}" 
                    class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center transition-colors">
                     <i class="fas fa-download mr-2"></i>
                     Baixar arquivo de exemplo
@@ -89,7 +89,7 @@
                 </a>
                 <button type="submit" 
                         class="px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-700 rounded-md hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors">
-                    Importar CSV
+                    Importar
                 </button>
             </div>
         </form>

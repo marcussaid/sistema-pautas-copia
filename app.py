@@ -469,22 +469,6 @@ def test_login():
     
     return jsonify(result)
 
-@app.route('/refresh_data')
-@login_required
-def refresh_data():
-    try:
-        # Aqui poderiamos realizar qualquer processamento necessário
-        # Neste exemplo, simplesmente retornamos um sucesso
-        return jsonify({
-            'success': True,
-            'message': 'Dados atualizados com sucesso!'
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'Erro ao atualizar dados: {str(e)}'
-        })
-
 # Rotas para edição de registros
 @app.route('/edit/<int:registro_id>', methods=['GET', 'POST'])
 @login_required
@@ -650,44 +634,48 @@ def download_anexo(registro_id, anexo_id):
 @login_required
 def delete_anexo(registro_id, anexo_id):
     # Verifica se o registro existe
-    registro = query_db('SELECT * FROM registros WHERE id = ?', [registro_id], one=True)
+    registro = query_db('SELECT anexos FROM registros WHERE id = ?', [registro_id], one=True)
     if not registro:
-        return jsonify({'error': 'Registro não encontrado.'}), 404
+        return jsonify({'success': False, 'error': 'Registro não encontrado'}), 404
     
-    # Obtém os anexos
     try:
-        if isinstance(registro['anexos'], str):
-            anexos = json.loads(registro['anexos'])
+        # Carrega os anexos existentes
+        anexos = json.loads(registro['anexos']) if registro['anexos'] else []
+        
+        # Encontra o anexo pelo ID
+        anexo_encontrado = None
+        for anexo in anexos:
+            if anexo.get('id') == anexo_id:
+                anexo_encontrado = anexo
+                break
+        
+        if not anexo_encontrado:
+            return jsonify({'success': False, 'error': 'Anexo não encontrado'}), 404
+        
+        # Remove o anexo da lista
+        anexos = [a for a in anexos if a.get('id') != anexo_id]
+        
+        # Tenta remover o arquivo físico, se existir
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], anexo_encontrado.get('filename', ''))
+        try:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+        except Exception as e:
+            print(f"Erro ao excluir arquivo físico: {str(e)}")
+        
+        # Atualiza o banco de dados
+        if sqlite3_version >= (3, 30, 0):
+            # SQLite (JSON)
+            query_db('UPDATE registros SET anexos = json(?), data_ultima_edicao = CURRENT_TIMESTAMP, ultimo_editor = ? WHERE id = ?', 
+                     [json.dumps(anexos), current_user.username, registro_id])
         else:
-            anexos = registro['anexos']
-    except (json.JSONDecodeError, TypeError):
-        anexos = []
+            # SQLite (TEXT)
+            query_db('UPDATE registros SET anexos = ?, data_ultima_edicao = CURRENT_TIMESTAMP, ultimo_editor = ? WHERE id = ?', 
+                     [json.dumps(anexos), current_user.username, registro_id])
     
-    # Procura o anexo pelo ID
-    anexo = next((a for a in anexos if a['id'] == anexo_id), None)
-    if not anexo:
-        return jsonify({'error': 'Anexo não encontrado.'}), 404
-    
-    # Remove o arquivo do sistema de arquivos
-    filepath = os.path.join(app.root_path, 'uploads', anexo['nome_sistema'])
-    try:
-        if os.path.exists(filepath):
-            os.remove(filepath)
+        return jsonify({'success': True})
     except Exception as e:
-        print(f"Erro ao remover arquivo: {str(e)}")
-    
-    # Remove o anexo da lista
-    anexos = [a for a in anexos if a['id'] != anexo_id]
-    
-    # Atualiza o registro no banco de dados
-    if IS_PRODUCTION:
-        # PostgreSQL (JSONB)
-        query_db('UPDATE registros SET anexos = %s WHERE id = %s', [json.dumps(anexos), registro_id])
-    else:
-        # SQLite (TEXT)
-        query_db('UPDATE registros SET anexos = ? WHERE id = ?', [json.dumps(anexos), registro_id])
-    
-    return jsonify({'success': True})
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # Rota para importação de CSV
 @app.route('/import_csv', methods=['GET', 'POST'])
@@ -700,6 +688,7 @@ def import_csv():
     if request.method == 'POST':
         # Verifica se é uma confirmação de importação após preview
         if 'confirm' in request.form:
+            print("Processando confirmação de importação...")
             # Recupera os dados da sessão
             if 'import_data' not in session:
                 flash('Dados para importação não encontrados. Por favor, tente novamente.')
@@ -707,52 +696,114 @@ def import_csv():
             
             # Obtém os dados da sessão
             import_data = session['import_data']
+            print(f"Dados recuperados da sessão: {len(import_data)} linhas no total")
             
             # Remove o cabeçalho
-            data_rows = import_data[1:]
+            data_rows = import_data[1:] if len(import_data) > 1 else []
+            print(f"Dados sem cabeçalho: {len(data_rows)} linhas para processamento")
             
             # Importa os dados
             success_count = 0
             error_count = 0
+            error_details = []
             
-            for row in data_rows:
+            for i, row in enumerate(data_rows, start=2):  # start=2 para considerar que linha 1 é o cabeçalho
                 try:
+                    print(f"Processando linha {i}: {row}")
                     if len(row) < 6:  # Mínimo de colunas necessárias
+                        error_msg = f"Linha {i}: Número insuficiente de colunas ({len(row)}/6)"
+                        print(error_msg)
+                        error_details.append(error_msg)
                         error_count += 1
                         continue
                     
-                    data, demanda, assunto, local, direcionamentos, status = row[:6]
+                    # Extrai os dados da linha
+                    data, demanda, assunto, local, direcionamentos, status = [str(col).strip() for col in row[:6]]
                     
-                    # Converte a data (assume DD/MM/AAAA)
-                    try:
-                        data_parts = data.split('/')
-                        if len(data_parts) == 3:
-                            data = f"{data_parts[2]}-{data_parts[1]}-{data_parts[0]}"
-                    except Exception:
-                        # Mantém a data como está se falhar
-                        pass
+                    # Validações básicas
+                    if not data or not demanda or not assunto:
+                        error_msg = f"Linha {i}: Campos obrigatórios vazios (data, demanda ou assunto)"
+                        print(error_msg)
+                        error_details.append(error_msg)
+                        error_count += 1
+                        continue
+                    
+                    # Converte a data (tenta diferentes formatos)
+                    data_formatada = None
+                    
+                    # Tenta formato DD/MM/AAAA
+                    if '/' in data:
+                        try:
+                            data_parts = data.split('/')
+                            if len(data_parts) == 3:
+                                # Garante que todos os componentes são numéricos
+                                if all(part.isdigit() for part in data_parts):
+                                    # Converte para formato ISO (AAAA-MM-DD)
+                                    data_formatada = f"{data_parts[2].zfill(4)}-{data_parts[1].zfill(2)}-{data_parts[0].zfill(2)}"
+                        except Exception as e:
+                            print(f"Erro ao processar data (formato DD/MM/AAAA): {str(e)}")
+                    
+                    # Tenta formato AAAA-MM-DD
+                    elif '-' in data:
+                        try:
+                            data_parts = data.split('-')
+                            if len(data_parts) == 3:
+                                # Garante que todos os componentes são numéricos
+                                if all(part.isdigit() for part in data_parts):
+                                    # Já está no formato ISO
+                                    data_formatada = f"{data_parts[0].zfill(4)}-{data_parts[1].zfill(2)}-{data_parts[2].zfill(2)}"
+                        except Exception as e:
+                            print(f"Erro ao processar data (formato AAAA-MM-DD): {str(e)}")
+                    
+                    # Se a data não foi formatada com sucesso, tenta hoje
+                    if not data_formatada:
+                        from datetime import date
+                        data_formatada = date.today().isoformat()
+                        print(f"Usando data de hoje ({data_formatada}) para linha {i}")
                     
                     # Valida o status
-                    if status not in STATUS_CHOICES:
+                    status_original = status
+                    if not status or status not in STATUS_CHOICES:
                         status = 'Pendente'  # Default
+                        print(f"Status inválido na linha {i}: '{status_original}', usando 'Pendente'")
+                    
+                    print(f"Dados formatados: data={data_formatada}, demanda='{demanda}', status='{status}'")
                     
                     # Insere no banco de dados
-                    query_db('''
-                        INSERT INTO registros 
-                        (data, demanda, assunto, status, local, direcionamentos, ultimo_editor, data_ultima_edicao) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                    ''', [
-                        data, demanda, assunto, status, local, direcionamentos, 
-                        current_user.username
-                    ])
-                    
-                    success_count += 1
+                    try:
+                        query_db('''
+                            INSERT INTO registros 
+                            (data, demanda, assunto, status, local, direcionamentos, ultimo_editor, data_ultima_edicao) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        ''', [
+                            data_formatada, demanda, assunto, status, local, direcionamentos, 
+                            current_user.username
+                        ])
+                        
+                        success_count += 1
+                        print(f"Linha {i} importada com sucesso")
+                    except Exception as e:
+                        error_msg = f"Linha {i}: Erro ao inserir no banco de dados: {str(e)}"
+                        print(error_msg)
+                        error_details.append(error_msg)
+                        error_count += 1
+                
                 except Exception as e:
-                    print(f"Erro ao importar linha: {str(e)}")
+                    error_msg = f"Linha {i}: Erro inesperado: {str(e)}"
+                    print(error_msg)
+                    error_details.append(error_msg)
                     error_count += 1
             
             # Limpa os dados da sessão
             session.pop('import_data', None)
+            
+            # Detalhes dos erros (para debug)
+            if error_details:
+                print("Detalhes dos erros durante importação:")
+                for error in error_details[:5]:  # Limita a 5 erros no log
+                    print(f"- {error}")
+                if len(error_details) > 5:
+                    print(f"... e mais {len(error_details) - 5} erros.")
             
             # Retorna o resultado
             flash(f'Importação concluída. {success_count} registros importados com sucesso. {error_count} registros com erro.')
@@ -768,33 +819,66 @@ def import_csv():
             flash('Nenhum arquivo selecionado.')
             return redirect(url_for('import_csv'))
         
-        if not file.filename.endswith('.csv'):
+        if not file.filename.lower().endswith('.csv'):
             flash('Por favor, selecione um arquivo CSV.')
             return redirect(url_for('import_csv'))
         
-        # Lê o arquivo CSV
+        # Tenta ler o arquivo CSV com diferentes codificações e delimitadores
         import csv
         
-        try:
-            # Decodifica o conteúdo do arquivo
-            content = file.read().decode('utf-8')
-            csv_reader = csv.reader(content.splitlines(), delimiter=',')
-            data = [row for row in csv_reader]
-            
-            # Verifica se o arquivo tem dados
-            if len(data) < 2:  # Pelo menos cabeçalho + 1 linha
-                flash('Arquivo CSV vazio ou inválido.')
-                return redirect(url_for('import_csv'))
-            
-            # Guarda os dados na sessão para confirmação
-            session['import_data'] = data
-            
-            # Renderiza o template com preview
-            return render_template('import_csv.html', preview_data=data)
+        # Lista de codificações e delimitadores para tentar
+        encodings = ['utf-8', 'latin1', 'iso-8859-1', 'cp1252']
+        delimiters = [',', ';', '\t']
         
-        except Exception as e:
-            flash(f'Erro ao processar o arquivo CSV: {str(e)}')
+        file_content = file.read()  # Lê o conteúdo uma vez
+        
+        success = False
+        data = None
+        error_message = "Não foi possível processar o arquivo CSV."
+        
+        for encoding in encodings:
+            if success:
+                break
+                
+            try:
+                print(f"Tentando decodificar com {encoding}")
+                decoded_content = file_content.decode(encoding)
+                
+                for delimiter in delimiters:
+                    try:
+                        print(f"Tentando delimitador '{delimiter}'")
+                        csv_reader = csv.reader(decoded_content.splitlines(), delimiter=delimiter)
+                        data = [row for row in csv_reader]
+                        
+                        # Verifica se o arquivo tem dados válidos (pelo menos 2 linhas)
+                        if len(data) >= 2 and len(data[0]) >= 3:  # Pelo menos cabeçalho e 1 linha de dados
+                            success = True
+                            print(f"Sucesso com encoding={encoding}, delimiter='{delimiter}', encontradas {len(data)} linhas")
+                            break
+                    except Exception as e:
+                        print(f"Erro com delimitador '{delimiter}': {str(e)}")
+            except Exception as e:
+                print(f"Erro com encoding {encoding}: {str(e)}")
+        
+        if not success or not data:
+            flash(error_message)
             return redirect(url_for('import_csv'))
+        
+        # Verifica se o arquivo tem dados
+        if len(data) < 2:  # Pelo menos cabeçalho + 1 linha
+            flash('Arquivo CSV vazio ou inválido.')
+            return redirect(url_for('import_csv'))
+        
+        # Diagnostica o conteúdo do arquivo
+        print(f"Cabeçalho: {data[0]}")
+        for i, row in enumerate(data[1:3], start=1):  # Mostra até 2 linhas de dados
+            print(f"Linha {i}: {row}")
+        
+        # Guarda os dados na sessão para confirmação
+        session['import_data'] = data
+        
+        # Renderiza o template com preview
+        return render_template('import_csv.html', preview_data=data)
     
     # Método GET - exibe a página de upload
     return render_template('import_csv.html')
@@ -848,10 +932,177 @@ def search():
     # Método GET - redireciona para a página de relatório
     return redirect(url_for('report'))
 
-# As funções de importação e exportação foram removidas conforme solicitado.
+# Rota para excluir registros
+@app.route('/delete_registro/<int:registro_id>', methods=['POST'])
+@login_required
+def delete_registro(registro_id):
+    try:
+        # Verifica se o usuário é superusuário
+        if not current_user.is_superuser:
+            return jsonify({'success': False, 'message': 'Acesso negado: apenas administradores podem excluir registros.'}), 403
+        
+        # Busca o registro para confirmar que existe
+        registro = query_db('SELECT * FROM registros WHERE id = ?', [registro_id], one=True)
+        if not registro:
+            return jsonify({'success': False, 'message': 'Registro não encontrado.'}), 404
+        
+        # Exclui o registro
+        query_db('DELETE FROM registros WHERE id = ?', [registro_id])
+        
+        # Retorna sucesso
+        return jsonify({'success': True, 'message': 'Registro excluído com sucesso!'})
+    except Exception as e:
+        print(f"Erro ao excluir registro {registro_id}: {str(e)}")
+        return jsonify({'success': False, 'message': f'Erro ao excluir registro: {str(e)}'}), 500
+
+# Rota para exportação de CSV
+@app.route('/export_csv', methods=['GET'])
+@login_required
+def export_csv():
+    try:
+        print("Função export_csv iniciada")
+        # Busca todos os registros ou aplica filtros se houver
+        query = 'SELECT * FROM registros WHERE 1=1'
+        params = []
+        
+        # Aplica filtros se estiverem na URL
+        status = request.args.get('status')
+        termo = request.args.get('termo')
+        data_inicio = request.args.get('data_inicio')
+        data_fim = request.args.get('data_fim')
+        
+        print(f"Filtros recebidos: status={status}, termo={termo}, data_inicio={data_inicio}, data_fim={data_fim}")
+        
+        if termo:
+            query += ' AND (demanda LIKE ? OR assunto LIKE ? OR local LIKE ? OR direcionamentos LIKE ?)'
+            termo_search = f'%{termo}%'
+            params.extend([termo_search, termo_search, termo_search, termo_search])
+        
+        if status and status != 'Todos':
+            query += ' AND status = ?'
+            params.append(status)
+        
+        if data_inicio:
+            query += ' AND data >= ?'
+            params.append(data_inicio)
+        
+        if data_fim:
+            query += ' AND data <= ?'
+            params.append(data_fim)
+        
+        # Ordenação
+        query += ' ORDER BY data DESC, id DESC'
+        
+        print(f"Query: {query}")
+        print(f"Parâmetros: {params}")
+        
+        # Executa a pesquisa
+        registros = query_db(query, params)
+        print(f"Número de registros encontrados: {len(registros)}")
+        
+        # Gera o conteúdo do CSV
+        import csv
+        from io import StringIO
+        
+        # Cria um buffer na memória
+        output = StringIO()
+        
+        # Adiciona BOM UTF-8 para garantir que Excel e outros programas reconheçam os acentos
+        output.write('\ufeff')
+        
+        writer = csv.writer(output, delimiter=';', quoting=csv.QUOTE_MINIMAL)
+        
+        # Escreve o cabeçalho
+        writer.writerow(['Data', 'Demanda', 'Assunto', 'Local', 'Direcionamentos', 'Status'])
+        
+        # Escreve as linhas de dados
+        for registro in registros:
+            try:
+                writer.writerow([
+                    registro.get('data', ''),
+                    registro.get('demanda', ''),
+                    registro.get('assunto', ''),
+                    registro.get('local', ''),
+                    registro.get('direcionamentos', ''),
+                    registro.get('status', '')
+                ])
+            except Exception as e:
+                print(f"Erro ao processar registro {registro}: {str(e)}")
+        
+        # Prepara o arquivo para download
+        output_value = output.getvalue()
+        response = make_response(output_value)
+        response.headers['Content-Disposition'] = f'attachment; filename=demandas_{datetime.now().strftime("%Y-%m-%d")}.csv'
+        response.headers['Content-Type'] = 'text/csv; charset=utf-8'
+        response.headers['Content-Length'] = len(output_value.encode('utf-8'))  # Usa encode para obter o tamanho em bytes
+        response.headers['Cache-Control'] = 'no-cache'
+        
+        print("Arquivo CSV gerado com sucesso")
+        return response
+    except Exception as e:
+        import traceback
+        print(f"Erro ao exportar dados: {str(e)}")
+        print(traceback.format_exc())
+        flash(f'Erro ao exportar dados: {str(e)}')
+        return redirect(url_for('report'))
+
+@app.route('/test_export')
+@login_required
+def test_export():
+    """
+    Rota para testar a exportação
+    """
+    try:
+        # Tenta buscar alguns registros diretamente
+        registros = query_db('SELECT * FROM registros LIMIT 5')
+        
+        if not registros:
+            return "Não há registros para exportar. Primeiro adicione alguns registros."
+        
+        # Converte registros para HTML para visualização
+        html = "<h1>Teste de Exportação</h1>"
+        html += "<p>Registros encontrados: " + str(len(registros)) + "</p>"
+        html += "<table border='1'><tr><th>ID</th><th>Data</th><th>Demanda</th><th>Status</th></tr>"
+        
+        for reg in registros:
+            html += f"<tr><td>{reg.get('id', '')}</td><td>{reg.get('data', '')}</td><td>{reg.get('demanda', '')}</td><td>{reg.get('status', '')}</td></tr>"
+        
+        html += "</table>"
+        html += "<p><a href='/export_csv'>Clique aqui para testar a exportação</a></p>"
+        html += "<p><a href='/report'>Voltar para o relatório</a></p>"
+        
+        return html
+        
+    except Exception as e:
+        import traceback
+        error_html = "<h1>Erro no teste</h1>"
+        error_html += f"<p>Erro: {str(e)}</p>"
+        error_html += f"<pre>{traceback.format_exc()}</pre>"
+        error_html += "<p><a href='/report'>Voltar para o relatório</a></p>"
+        return error_html
+
+# Rota para gerar um arquivo de exemplo CSV com codificação correta
+@app.route('/gerar_exemplo_csv')
+def gerar_exemplo_csv():
+    try:
+        # Conteúdo do exemplo CSV
+        csv_content = """Data;Demanda;Assunto;Local;Direcionamentos;Status
+01/06/2024;Fazer relatório mensal;Relatório Financeiro;Departamento Financeiro;Enviar para o diretor financeiro até dia 10;Em andamento
+15/06/2024;Reunião com fornecedores;Contratos;Sala de Reuniões;Preparar apresentação e material de apoio;Pendente
+20/06/2024;Entrega de documentos;Documentação Fiscal;Setor Jurídico;Coletar assinaturas necessárias;Concluído"""
+        
+        # Adiciona BOM UTF-8 para garantir que Excel e outros programas reconheçam os acentos
+        response = make_response('\ufeff' + csv_content)
+        response.headers['Content-Disposition'] = 'attachment; filename=exemplo_importacao.csv'
+        response.headers['Content-Type'] = 'text/csv; charset=utf-8'
+        response.headers['Content-Length'] = len(('\ufeff' + csv_content).encode('utf-8'))
+        
+        return response
+    except Exception as e:
+        return f"Erro ao gerar arquivo de exemplo: {str(e)}"
 
 if __name__ == '__main__':
     # Garantir que as tabelas do banco de dados existam
     ensure_tables()
     # Iniciar o servidor Flask
-    app.run(debug=True, port=8000)
+    app.run(debug=True, host='0.0.0.0', port=8000)

@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 {% block content %}
 <div class="container mx-auto px-2 py-4 bg-gray-50 dark:bg-gray-900 min-h-screen transition-all duration-200">
     <div class="mb-8 flex flex-col sm:flex-row justify-between items-center">
@@ -9,15 +9,12 @@
             </a>
             {% if current_user.is_superuser %}
             <a href="{{ url_for('import_csv') }}" class="bg-green-600 dark:bg-green-700 hover:bg-green-700 dark:hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition-all duration-200 hover:shadow-lg transform hover:scale-[1.02] active:scale-[0.98]">
-                <i class="fas fa-file-import mr-2"></i>Importar CSV
+                <i class="fas fa-file-import mr-2"></i>Importar
             </a>
             {% endif %}
-            <button id="refreshButton" class="bg-purple-600 dark:bg-purple-700 hover:bg-purple-700 dark:hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition-all duration-200 hover:shadow-lg transform hover:scale-[1.02] active:scale-[0.98]">
-                <i class="fas fa-sync-alt mr-2"></i>Atualizar
-            </button>
-            <button id="exportButton" class="bg-green-600 dark:bg-green-700 hover:bg-green-700 dark:hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition-all duration-200 hover:shadow-lg transform hover:scale-[1.02] active:scale-[0.98]">
+            <a href="/export_csv" id="exportButton" class="bg-green-600 dark:bg-green-700 hover:bg-green-700 dark:hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition-all duration-200 hover:shadow-lg transform hover:scale-[1.02] active:scale-[0.98]">
                 <i class="fas fa-file-export mr-2"></i>Exportar
-            </button>
+            </a>
         </div>
     </div>
 
@@ -509,123 +506,38 @@ document.getElementById('decreaseHeight').addEventListener('click', function() {
     tableContainer.style.maxHeight = `${newHeight}vh`;
 });
 
-// Funcionalidade de atualização via AJAX
-document.getElementById('refreshButton').addEventListener('click', function() {
-    const button = this;
-    const originalContent = button.innerHTML;
+// Atualiza o link de exportação com os filtros aplicados
+function updateExportLink() {
+    const exportButton = document.getElementById('exportButton');
+    let exportUrl = '/export_csv';
     
-    // Mostrar ícone de carregamento
-    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Atualizando...';
-    button.disabled = true;
+    // Adiciona parâmetros de filtro atual
+    const params = new URLSearchParams();
     
-    // Fazer a requisição AJAX
-    fetch('/refresh_data', {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Erro na resposta do servidor');
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success) {
-            // Mostrar notificação de sucesso
-            const notification = document.createElement('div');
-            notification.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50 transform transition-transform duration-300 translate-y-20';
-            notification.innerHTML = `<i class="fas fa-check-circle mr-2"></i>${data.message || 'Dados atualizados com sucesso!'}`;
-            document.body.appendChild(notification);
-            
-            // Animar a notificação
-            setTimeout(() => {
-                notification.classList.remove('translate-y-20');
-            }, 10);
-            
-            // Remover a notificação após alguns segundos
-            setTimeout(() => {
-                notification.classList.add('translate-y-20');
-                setTimeout(() => notification.remove(), 300);
-            }, 3000);
-            
-            // Recarregar a página para mostrar os dados atualizados
-            location.reload();
-        } else {
-            alert(data.message || 'Erro ao atualizar os dados.');
-        }
-    })
-    .catch(error => {
-        console.error('Erro:', error);
-        alert('Erro ao atualizar os dados. Por favor, tente novamente.');
-    })
-    .finally(() => {
-        // Restaurar o botão
-        button.innerHTML = originalContent;
-        button.disabled = false;
-    });
-});
-
-// Exportação de dados
-document.getElementById('exportButton').addEventListener('click', function() {
-    // Seleciona todas as linhas visíveis
-    const rows = document.querySelectorAll('tr[data-demanda-row]:not([style*="display: none"])');
-    
-    if (rows.length === 0) {
-        alert('Não há dados para exportar.');
-        return;
+    // Adiciona o filtro de status se estiver ativo
+    const statusFilter = document.getElementById('statusFilter').value;
+    if (statusFilter) {
+        params.append('status', statusFilter);
     }
     
-    // Prepara os dados para CSV
-    let csvContent = "";
+    // Adiciona o termo de pesquisa se estiver ativo
+    const searchInput = document.getElementById('searchInput').value;
+    if (searchInput) {
+        params.append('termo', searchInput);
+    }
     
-    // Cabeçalhos
-    const headers = ["Data", "Demanda", "Assunto", "Local", "Direcionamentos", "Status"];
-    csvContent += headers.join(";") + "\r\n";
+    // Adiciona os parâmetros à URL se houver algum
+    if (params.toString()) {
+        exportUrl += '?' + params.toString();
+    }
     
-    // Dados das linhas
-    rows.forEach(row => {
-        const data = row.getAttribute('data-data');
-        const demanda = row.getAttribute('data-demanda').replace(/;/g, ' ');
-        const assunto = row.getAttribute('data-assunto').replace(/;/g, ' ');
-        const local = row.querySelector('.column-local div').textContent.trim().replace(/;/g, ' ');
-        const direcionamentos = row.querySelector('.column-direcionamentos div').textContent.trim().replace(/;/g, ' ');
-        const status = row.getAttribute('data-status');
-        
-        const rowData = [
-            data, 
-            `"${demanda}"`, 
-            `"${assunto}"`, 
-            `"${local}"`, 
-            `"${direcionamentos}"`, 
-            status
-        ];
-        csvContent += rowData.join(";") + "\r\n";
-    });
-    
-    // Cria um blob com BOM para garantir suporte a acentos no Excel
-    const BOM = "\uFEFF";
-    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8' });
-    
-    // Cria uma URL para o blob
-    const url = URL.createObjectURL(blob);
-    
-    // Cria um link temporário para download
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `demandas_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    
-    // Clica no link e remove
-    link.click();
-    
-    // Limpa após o download
-    setTimeout(() => {
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    }, 100);
-});
+    // Atualiza o link do botão de exportação
+    exportButton.href = exportUrl;
+}
+
+// Chama a função quando os filtros são alterados
+document.getElementById('statusFilter').addEventListener('change', updateExportLink);
+document.getElementById('searchInput').addEventListener('input', updateExportLink);
 </script>
 {% endblock %}
+
