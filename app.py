@@ -1197,6 +1197,29 @@ def log_activity(username, action, details, ip_address=None):
         print(f"Erro ao registrar log: {str(e)}")
         return False
 
+# Rota para health check
+@app.route('/health')
+def health_check():
+    """
+    Rota para verificação de saúde do aplicativo.
+    Retorna status 200 OK se o aplicativo estiver funcionando corretamente.
+    """
+    try:
+        # Verifica a conexão com o banco de dados
+        query_db('SELECT 1')
+        return jsonify({
+            'status': 'ok',
+            'message': 'Sistema funcionando normalmente',
+            'timestamp': datetime.now().isoformat()
+        }), 200
+    except Exception as e:
+        # Se ocorrer algum erro, retorna status 500
+        return jsonify({
+            'status': 'error',
+            'message': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
 if __name__ == '__main__':
     # Garantir que as tabelas do banco de dados existam
     ensure_tables()
