@@ -1,12 +1,5 @@
-[33mcommit c58bfa03915a2783d246dd4bc32d1ac17f752cff[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+[33mcommit 8527762add94c60bf116f5805870715d2813995b[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
 Author: marcussaid <nobanrr@gmail.com>
-Date:   Thu Apr 17 14:03:13 2025 -0400
+Date:   Sun Apr 20 14:52:10 2025 -0400
 
-    Fix div by zero and add PostgreSQL support
-
-M	.gitignore
-M	app.py
-M	templates/admin.html
-M	templates/forgot_password.html
-M	templates/report.html
-A	test.py
+    Implementação da rota de health check para monitoramento do Render
