@@ -143,7 +143,8 @@
                             data-assunto="{{ registro['assunto'] }}"
                             data-status="{{ registro['status'] }}"
                             data-data="{{ registro['data'] }}"
-                            data-direcionamentos="{{ registro['direcionamentos'] }}">
+                            data-direcionamentos="{{ registro['direcionamentos'] }}"
+                            data-registro-id="{{ registro['id'] }}">
                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white transition-colors duration-200 column-data">
                                 {{ registro['data'] }}
                             </td>
@@ -182,6 +183,12 @@
                                     <a href="{{ url_for('edit_registro', registro_id=registro.id) }}" class="text-yellow-600 dark:text-yellow-400 hover:text-yellow-800 dark:hover:text-yellow-300 focus:outline-none transition-colors duration-200">
                                         <i class="fas fa-edit"></i>
                                     </a>
+                                    {% if current_user.is_superuser %}
+                                    <button class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 focus:outline-none transition-colors duration-200" 
+                                            onclick="confirmDelete('{{ registro.id }}', '{{ registro.demanda }}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    {% endif %}
                                 </div>
                             </td>
                         </tr>
@@ -289,6 +296,33 @@
             <div class="mt-6 flex justify-end">
                 <button onclick="closeColumnsModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
                     Aplicar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação de Exclusão -->
+<div id="deleteModal" class="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50 hidden transition-opacity duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 transition-all duration-200 transform scale-95 opacity-0" id="deleteModalContent">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white transition-colors duration-200">Confirmar Exclusão</h2>
+                <button onclick="closeDeleteModal()" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="mb-6">
+                <p class="text-gray-700 dark:text-gray-300">Tem certeza que deseja excluir o registro:</p>
+                <p class="text-gray-900 dark:text-white font-bold mt-2" id="deleteItemName"></p>
+                <p class="text-red-600 mt-4 text-sm">Esta ação não pode ser desfeita!</p>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button onclick="closeDeleteModal()" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200">
+                    Cancelar
+                </button>
+                <button id="confirmDeleteButton" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors duration-200">
+                    Excluir
                 </button>
             </div>
         </div>
@@ -538,6 +572,121 @@ function updateExportLink() {
 // Chama a função quando os filtros são alterados
 document.getElementById('statusFilter').addEventListener('change', updateExportLink);
 document.getElementById('searchInput').addEventListener('input', updateExportLink);
+
+// Funções para o modal de exclusão
+function confirmDelete(id, nome) {
+    document.getElementById('deleteItemName').textContent = nome;
+    
+    // Configurar o botão de confirmação
+    const confirmButton = document.getElementById('confirmDeleteButton');
+    confirmButton.onclick = function() {
+        // Executar a exclusão
+        deleteRegistro(id);
+    };
+    
+    // Mostrar o modal
+    const modal = document.getElementById('deleteModal');
+    const modalContent = document.getElementById('deleteModalContent');
+    
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+        modalContent.classList.remove('scale-95', 'opacity-0');
+        modalContent.classList.add('scale-100', 'opacity-100');
+    }, 10);
+}
+
+function closeDeleteModal() {
+    const modal = document.getElementById('deleteModal');
+    const modalContent = document.getElementById('deleteModalContent');
+    
+    modalContent.classList.remove('scale-100', 'opacity-100');
+    modalContent.classList.add('scale-95', 'opacity-0');
+    
+    setTimeout(() => {
+        modal.classList.add('hidden');
+    }, 200);
+}
+
+function deleteRegistro(id) {
+    // Criar uma requisição AJAX
+    fetch(`/delete_registro/${id}`, {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Fechar o modal
+            closeDeleteModal();
+            // Exibir mensagem de sucesso
+            showToast('Registro excluído com sucesso!', 'success');
+            // Remover a linha da tabela
+            const row = document.querySelector(`tr[data-registro-id="${id}"]`);
+            if (row) {
+                row.remove();
+                // Atualizar o contador de registros
+                updateRecordCounter();
+            } else {
+                // Se não encontrar a linha, recarregar a página
+                window.location.reload();
+            }
+        } else {
+            // Exibir mensagem de erro
+            showToast(data.message || 'Erro ao excluir registro', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        showToast('Erro ao comunicar com o servidor', 'error');
+    });
+}
+
+// Função para exibir mensagens toast
+function showToast(message, type = 'info') {
+    // Criar elemento toast
+    const toast = document.createElement('div');
+    toast.className = 'fixed bottom-4 right-4 px-4 py-2 rounded shadow-lg z-50 transition-all duration-300 transform translate-y-full opacity-0';
+    
+    // Definir cores baseadas no tipo
+    if (type === 'success') {
+        toast.classList.add('bg-green-600', 'text-white');
+    } else if (type === 'error') {
+        toast.classList.add('bg-red-600', 'text-white');
+    } else {
+        toast.classList.add('bg-blue-600', 'text-white');
+    }
+    
+    // Adicionar mensagem
+    toast.textContent = message;
+    
+    // Adicionar ao DOM
+    document.body.appendChild(toast);
+    
+    // Animar entrada
+    setTimeout(() => {
+        toast.classList.remove('translate-y-full', 'opacity-0');
+    }, 10);
+    
+    // Remover após 3 segundos
+    setTimeout(() => {
+        toast.classList.add('translate-y-full', 'opacity-0');
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 300);
+    }, 3000);
+}
+
+// Função para atualizar o contador de registros
+function updateRecordCounter() {
+    const visibleRows = document.querySelectorAll('tr[data-demanda-row]:not([style*="display: none"])');
+    const counter = document.getElementById('registrosCounter');
+    if (counter) {
+        counter.textContent = `Mostrando ${visibleRows.length} registro(s)`;
+    }
+}
 </script>
 {% endblock %}
 

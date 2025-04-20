@@ -150,6 +150,28 @@ def ensure_tables():
                     )
                 ''')
                 conn.commit()
+                
+            # Verifica se a tabela system_logs existe
+            cur.execute("SELECT to_regclass('public.system_logs')")
+            if not cur.fetchone()[0]:
+                # Cria a tabela system_logs se não existir
+                cur.execute('''
+                    CREATE TABLE system_logs (
+                        id SERIAL PRIMARY KEY,
+                        timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                        username TEXT,
+                        action TEXT,
+                        details TEXT,
+                        ip_address TEXT
+                    )
+                ''')
+                # Registra o primeiro log de inicialização do sistema
+                cur.execute('''
+                    INSERT INTO system_logs (username, action, details)
+                    VALUES ('sistema', 'inicialização', 'Sistema iniciado com sucesso')
+                ''')
+                conn.commit()
+                print("Tabela de logs do sistema criada com sucesso!")
         else:
             # SQLite
             # Verifica se a tabela users existe
@@ -191,6 +213,28 @@ def ensure_tables():
                     )
                 ''')
                 conn.commit()
+                
+            # Verifica se a tabela system_logs existe
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='system_logs'")
+            if not cur.fetchone():
+                # Cria a tabela system_logs se não existir
+                cur.execute('''
+                    CREATE TABLE system_logs (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        username TEXT,
+                        action TEXT,
+                        details TEXT,
+                        ip_address TEXT
+                    )
+                ''')
+                # Registra o primeiro log de inicialização do sistema
+                cur.execute('''
+                    INSERT INTO system_logs (username, action, details)
+                    VALUES ('sistema', 'inicialização', 'Sistema iniciado com sucesso')
+                ''')
+                conn.commit()
+                print("Tabela de logs do sistema criada com sucesso!")
         
         cur.close()
         conn.close()
@@ -313,7 +357,30 @@ def admin():
     stats = get_stats()
     stats['total_usuarios'] = len(users)
     
-    system_logs = ["Sistema iniciado"]
+    # Busca os logs mais recentes do sistema
+    system_logs = query_db('''
+        SELECT timestamp, username, action, details, ip_address 
+        FROM system_logs 
+        ORDER BY timestamp DESC 
+        LIMIT 50
+    ''')
+    
+    # Formata os logs para exibição
+    formatted_logs = []
+    for log in system_logs:
+        timestamp = log['timestamp']
+        # Formata a data/hora para exibição
+        if isinstance(timestamp, str):
+            # Analisa a string de data/hora
+            try:
+                from datetime import datetime
+                timestamp = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+            except:
+                # Mantém como string se não conseguir converter
+                pass
+        
+        formatted_log = f"[{timestamp}] {log['username']}: {log['action']} - {log['details']}"
+        formatted_logs.append(formatted_log)
     
     settings = {
         'per_page': 10,
@@ -321,7 +388,7 @@ def admin():
         'auto_backup': 'daily'
     }
     
-    return render_template('admin.html', users=users, stats=stats, system_logs=system_logs, settings=settings)
+    return render_template('admin.html', users=users, stats=stats, system_logs=formatted_logs, settings=settings)
 
 @app.route('/admin/user/<int:user_id>', methods=['PUT'])
 @login_required
@@ -703,26 +770,26 @@ def import_csv():
             print(f"Dados sem cabeçalho: {len(data_rows)} linhas para processamento")
             
             # Importa os dados
-            success_count = 0
-            error_count = 0
-            error_details = []
+            registros_importados = 0
+            registros_com_erro = 0
             
-            for i, row in enumerate(data_rows, start=2):  # start=2 para considerar que linha 1 é o cabeçalho
+            # Inserir os registros no banco de dados
+            for registro in data_rows:
                 try:
-                    print(f"Processando linha {i}: {row}")
-                    if len(row) < 6:  # Mínimo de colunas necessárias
-                        error_msg = f"Linha {i}: Número insuficiente de colunas ({len(row)}/6)"
+                    print(f"Processando linha {len(data_rows) - len(data_rows) + 1}: {registro}")
+                    if len(registro) < 6:  # Mínimo de colunas necessárias
+                        error_msg = f"Linha {len(data_rows) - len(data_rows) + 1}: Número insuficiente de colunas ({len(registro)}/6)"
                         print(error_msg)
                         error_details.append(error_msg)
                         error_count += 1
                         continue
                     
                     # Extrai os dados da linha
-                    data, demanda, assunto, local, direcionamentos, status = [str(col).strip() for col in row[:6]]
+                    data, demanda, assunto, local, direcionamentos, status = [str(col).strip() for col in registro[:6]]
                     
                     # Validações básicas
                     if not data or not demanda or not assunto:
-                        error_msg = f"Linha {i}: Campos obrigatórios vazios (data, demanda ou assunto)"
+                        error_msg = f"Linha {len(data_rows) - len(data_rows) + 1}: Campos obrigatórios vazios (data, demanda ou assunto)"
                         print(error_msg)
                         error_details.append(error_msg)
                         error_count += 1
@@ -759,13 +826,13 @@ def import_csv():
                     if not data_formatada:
                         from datetime import date
                         data_formatada = date.today().isoformat()
-                        print(f"Usando data de hoje ({data_formatada}) para linha {i}")
+                        print(f"Usando data de hoje ({data_formatada}) para linha {len(data_rows) - len(data_rows) + 1}")
                     
                     # Valida o status
                     status_original = status
                     if not status or status not in STATUS_CHOICES:
                         status = 'Pendente'  # Default
-                        print(f"Status inválido na linha {i}: '{status_original}', usando 'Pendente'")
+                        print(f"Status inválido na linha {len(data_rows) - len(data_rows) + 1}: '{status_original}', usando 'Pendente'")
                     
                     print(f"Dados formatados: data={data_formatada}, demanda='{demanda}', status='{status}'")
                     
@@ -780,16 +847,16 @@ def import_csv():
                             current_user.username
                         ])
                         
-                        success_count += 1
-                        print(f"Linha {i} importada com sucesso")
+                        registros_importados += 1
+                        print(f"Linha {len(data_rows) - len(data_rows) + 1} importada com sucesso")
                     except Exception as e:
-                        error_msg = f"Linha {i}: Erro ao inserir no banco de dados: {str(e)}"
+                        error_msg = f"Linha {len(data_rows) - len(data_rows) + 1}: Erro ao inserir no banco de dados: {str(e)}"
                         print(error_msg)
                         error_details.append(error_msg)
                         error_count += 1
                 
                 except Exception as e:
-                    error_msg = f"Linha {i}: Erro inesperado: {str(e)}"
+                    error_msg = f"Linha {len(data_rows) - len(data_rows) + 1}: Erro inesperado: {str(e)}"
                     print(error_msg)
                     error_details.append(error_msg)
                     error_count += 1
@@ -797,16 +864,16 @@ def import_csv():
             # Limpa os dados da sessão
             session.pop('import_data', None)
             
-            # Detalhes dos erros (para debug)
-            if error_details:
-                print("Detalhes dos erros durante importação:")
-                for error in error_details[:5]:  # Limita a 5 erros no log
-                    print(f"- {error}")
-                if len(error_details) > 5:
-                    print(f"... e mais {len(error_details) - 5} erros.")
+            # Registrar no log a importação
+            log_activity(
+                username=current_user.username,
+                action='importação CSV',
+                details=f"Importação concluída: {registros_importados} registros importados, {len(error_details)} com erro, {len(error_details) - registros_importados} inválidos",
+                ip_address=request.remote_addr
+            )
             
             # Retorna o resultado
-            flash(f'Importação concluída. {success_count} registros importados com sucesso. {error_count} registros com erro.')
+            flash(f'Importação concluída com sucesso! Foram importados {registros_importados} registros. {len(error_details) - registros_importados} registros tiveram erros e não foram importados.')
             return redirect(url_for('report'))
         
         # Caso contrário, é o upload inicial do arquivo
@@ -945,6 +1012,15 @@ def delete_registro(registro_id):
         registro = query_db('SELECT * FROM registros WHERE id = ?', [registro_id], one=True)
         if not registro:
             return jsonify({'success': False, 'message': 'Registro não encontrado.'}), 404
+        
+        # Registra no log a ação de exclusão
+        detalhes = f"Registro excluído: ID={registro_id}, Demanda='{registro['demanda']}', Data='{registro['data']}'"
+        log_activity(
+            username=current_user.username,
+            action='exclusão de registro',
+            details=detalhes,
+            ip_address=request.remote_addr
+        )
         
         # Exclui o registro
         query_db('DELETE FROM registros WHERE id = ?', [registro_id])
@@ -1100,6 +1176,26 @@ def gerar_exemplo_csv():
         return response
     except Exception as e:
         return f"Erro ao gerar arquivo de exemplo: {str(e)}"
+
+def log_activity(username, action, details, ip_address=None):
+    """
+    Registra uma atividade no log do sistema
+    
+    Args:
+        username: Nome do usuário que realizou a ação
+        action: Tipo de ação (ex: 'login', 'exclusão', 'edição')
+        details: Detalhes da ação
+        ip_address: Endereço IP (opcional)
+    """
+    try:
+        query_db(
+            'INSERT INTO system_logs (username, action, details, ip_address) VALUES (?, ?, ?, ?)',
+            [username, action, details, ip_address]
+        )
+        return True
+    except Exception as e:
+        print(f"Erro ao registrar log: {str(e)}")
+        return False
 
 if __name__ == '__main__':
     # Garantir que as tabelas do banco de dados existam
