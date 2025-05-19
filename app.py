@@ -628,6 +628,7 @@ def upload_anexo(registro_id):
         # Faz upload do arquivo para o bucket S3
         s3_client.upload_fileobj(file, bucket_name, unique_filename)
     except (NoCredentialsError, ClientError) as e:
+        app.logger.error(f"Erro ao fazer upload para S3: {str(e)}")
         return jsonify({'error': f'Erro ao fazer upload para S3: {str(e)}'}), 500
     
     # Obtém os anexos atuais
