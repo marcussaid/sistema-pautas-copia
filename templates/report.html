@@ -144,7 +144,8 @@
                             data-status="{{ registro['status'] }}"
                             data-data="{{ registro['data'] }}"
                             data-direcionamentos="{{ registro['direcionamentos'] }}"
-                            data-registro-id="{{ registro['id'] }}">
+                            data-registro-id="{{ registro['id'] }}"
+                            data-anexos='{{ registro["anexos"] | tojson | safe }}'>
                             <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white transition-colors duration-200 column-data">
                                 {{ registro['data'] }}
                             </td>
@@ -252,6 +253,12 @@
                     <p class="text-sm text-gray-500 dark:text-gray-400 transition-colors duration-200">Última Edição</p>
                     <p class="text-lg text-gray-900 dark:text-white transition-colors duration-200" id="modalUltimaEdicao"></p>
                 </div>
+                <div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 transition-colors duration-200">Anexos</p>
+                    <div class="text-lg text-blue-600 dark:text-blue-400 transition-colors duration-200" id="modalAnexos">
+                        Nenhum anexo disponível.
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -331,7 +338,7 @@
 
 <script>
 // Função para mostrar detalhes do registro
-function showDetails(demanda, data, assunto, local, direcionamentos, status, ultimoEditor, dataUltimaEdicao) {
+function showDetails(demanda, data, assunto, local, direcionamentos, status, ultimoEditor, dataUltimaEdicao, anexos) {
     document.getElementById('modalTitle').textContent = demanda;
     document.getElementById('modalData').textContent = data;
     document.getElementById('modalAssunto').textContent = assunto;
@@ -359,6 +366,23 @@ function showDetails(demanda, data, assunto, local, direcionamentos, status, ult
         `Por ${ultimoEditor} em ${dataUltimaEdicao ? new Date(dataUltimaEdicao).toLocaleString() : 'Não disponível'}` : 
         'Não disponível';
     document.getElementById('modalUltimaEdicao').textContent = ultimaEdicao;
+
+    // Exibir anexos
+    const anexosContainer = document.getElementById('modalAnexos');
+    anexosContainer.innerHTML = ''; // Limpa conteúdo anterior
+    if (anexos && anexos.length > 0) {
+        anexos.forEach(anexo => {
+            const link = document.createElement('a');
+            link.href = anexo.url;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = anexo.nome_original || 'Anexo';
+            link.className = 'block text-blue-600 hover:underline mb-1';
+            anexosContainer.appendChild(link);
+        });
+    } else {
+        anexosContainer.textContent = 'Nenhum anexo disponível.';
+    }
     
     // Mostrar o modal com animação
     const modal = document.getElementById('detailsModal');

@@ -506,7 +506,19 @@ def report():
         SELECT * FROM registros
         ORDER BY data DESC, id DESC
     ''')
-    
+
+    # Converte o campo anexos de JSON string para objeto Python para cada registro
+    for registro in registros:
+        try:
+            if 'anexos' in registro and registro['anexos']:
+                if isinstance(registro['anexos'], str):
+                    registro['anexos'] = json.loads(registro['anexos'])
+                # Se já for objeto (PostgreSQL JSONB), mantém como está
+            else:
+                registro['anexos'] = []
+        except Exception:
+            registro['anexos'] = []
+
     return render_template('report.html', registros=registros, status_list=STATUS_CHOICES)
 
 @app.route('/update_settings', methods=['POST'])
