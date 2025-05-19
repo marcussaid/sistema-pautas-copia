@@ -514,6 +514,9 @@ def report():
                 if isinstance(registro['anexos'], str):
                     registro['anexos'] = json.loads(registro['anexos'])
                 # Se já for objeto (PostgreSQL JSONB), mantém como está
+                # Garantir que é uma lista
+                if not isinstance(registro['anexos'], list):
+                    registro['anexos'] = []
             else:
                 registro['anexos'] = []
         except Exception:
@@ -749,7 +752,7 @@ def delete_anexo(registro_id, anexo_id):
         anexos = [a for a in anexos if a.get('id') != anexo_id]
         
         # Tenta remover o arquivo físico, se existir
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], anexo_encontrado.get('filename', ''))
+        filepath = os.path.join(app.config.get('UPLOAD_FOLDER', ''), anexo_encontrado.get('nome_sistema', ''))
         try:
             if os.path.exists(filepath):
                 os.remove(filepath)
@@ -757,14 +760,9 @@ def delete_anexo(registro_id, anexo_id):
             print(f"Erro ao excluir arquivo físico: {str(e)}")
         
         # Atualiza o banco de dados
-        if sqlite3_version >= (3, 30, 0):
-            # SQLite (JSON)
-            query_db('UPDATE registros SET anexos = json(?), data_ultima_edicao = CURRENT_TIMESTAMP, ultimo_editor = ? WHERE id = ?', 
-                     [json.dumps(anexos), current_user.username, registro_id])
-        else:
-            # SQLite (TEXT)
-            query_db('UPDATE registros SET anexos = ?, data_ultima_edicao = CURRENT_TIMESTAMP, ultimo_editor = ? WHERE id = ?', 
-                     [json.dumps(anexos), current_user.username, registro_id])
+        # Como o ambiente de produção é PostgreSQL, usa json.dumps diretamente
+        query_db('UPDATE registros SET anexos = %s, data_ultima_edicao = CURRENT_TIMESTAMP, ultimo_editor = %s WHERE id = %s', 
+                 [json.dumps(anexos), current_user.username, registro_id])
     
         return jsonify({'success': True})
     except Exception as e:
