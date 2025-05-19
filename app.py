@@ -591,6 +591,9 @@ def edit_registro(registro_id):
     return render_template('edit.html', registro=registro, status_list=STATUS_CHOICES)
 
 # Rotas para gerenciamento de anexos
+import boto3
+from botocore.exceptions import NoCredentialsError, ClientError
+
 @app.route('/upload_anexo/<int:registro_id>', methods=['POST'])
 @login_required
 def upload_anexo(registro_id):
@@ -607,17 +610,25 @@ def upload_anexo(registro_id):
     if file.filename == '':
         return jsonify({'error': 'Nenhum arquivo selecionado.'}), 400
     
-    # Cria a pasta de anexos se não existir
-    upload_folder = os.path.join(app.root_path, 'uploads')
-    os.makedirs(upload_folder, exist_ok=True)
-    
     # Gera um nome seguro para o arquivo
     filename = secure_filename(file.filename)
     unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
-    filepath = os.path.join(upload_folder, unique_filename)
     
-    # Salva o arquivo
-    file.save(filepath)
+    # Configura o cliente S3
+    s3_client = boto3.client(
+        's3',
+        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+        region_name=os.environ.get('AWS_DEFAULT_REGION')
+    )
+    
+    bucket_name = os.environ.get('AWS_BUCKET_NAME')
+    
+    try:
+        # Faz upload do arquivo para o bucket S3
+        s3_client.upload_fileobj(file, bucket_name, unique_filename)
+    except (NoCredentialsError, ClientError) as e:
+        return jsonify({'error': f'Erro ao fazer upload para S3: {str(e)}'}), 500
     
     # Obtém os anexos atuais
     try:
@@ -635,13 +646,15 @@ def upload_anexo(registro_id):
     import uuid
     anexo_id = str(uuid.uuid4())
     
-    # Adiciona o novo anexo
+    # Adiciona o novo anexo com a URL do S3
+    s3_url = f"https://{bucket_name}.s3.{os.environ.get('AWS_DEFAULT_REGION')}.amazonaws.com/{unique_filename}"
     novo_anexo = {
         'id': anexo_id,
         'nome_original': filename,
         'nome_sistema': unique_filename,
+        'url': s3_url,
         'data_upload': datetime.now().isoformat(),
-        'tamanho': os.path.getsize(filepath)
+        'tamanho': file.content_length if file.content_length else 0
     }
     anexos.append(novo_anexo)
     
