@@ -6,7 +6,7 @@ from datetime import datetime, date
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import sqlite3
 import psycopg2
-from psycopg2.extras import DictCursor
+from psycopg2.extras import DictCursor, Json
 
 # Inicialização do Flask
 app = Flask(__name__, static_folder='static')
@@ -772,9 +772,9 @@ def delete_anexo(registro_id, anexo_id):
         app.logger.debug(f"Valor de anexos antes do update: {anexos}")
         
         # Atualiza o banco de dados
-        # Como o ambiente de produção é PostgreSQL, usa json.dumps diretamente
+        # Como o ambiente de produção é PostgreSQL, usa Json para serializar
         query_db('UPDATE registros SET anexos = %s, data_ultima_edicao = CURRENT_TIMESTAMP, ultimo_editor = %s WHERE id = %s', 
-                 [json.dumps(anexos), current_user.username, registro_id])
+                 [Json(anexos), current_user.username, registro_id])
     
         return jsonify({'success': True})
     except Exception as e:
