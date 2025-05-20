@@ -12,6 +12,12 @@ from psycopg2.extras import DictCursor
 app = Flask(__name__, static_folder='static')
 app.secret_key = os.environ.get('SECRET_KEY', 'sistema_demandas_secret_key_2024')
 
+# Definir diretório de upload padrão
+UPLOAD_FOLDER = os.path.join(app.root_path, 'uploads')
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
 # Configuração do Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -756,8 +762,14 @@ def delete_anexo(registro_id, anexo_id):
         try:
             if os.path.exists(filepath):
                 os.remove(filepath)
+            else:
+                app.logger.warning(f"Arquivo para exclusão não encontrado: {filepath}")
         except Exception as e:
-            print(f"Erro ao excluir arquivo físico: {str(e)}")
+            app.logger.error(f"Erro ao excluir arquivo físico: {str(e)}")
+        
+        # Log para depuração do tipo e valor de anexos antes da atualização
+        app.logger.debug(f"Tipo de anexos antes do update: {type(anexos)}")
+        app.logger.debug(f"Valor de anexos antes do update: {anexos}")
         
         # Atualiza o banco de dados
         # Como o ambiente de produção é PostgreSQL, usa json.dumps diretamente
