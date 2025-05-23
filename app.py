@@ -2,11 +2,54 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 import os
 import json
 from werkzeug.utils import secure_filename
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import sqlite3
 import psycopg2
 from psycopg2.extras import DictCursor, Json
+
+import jwt  # PyJWT
+from functools import wraps
+
+# Secret key para JWT
+JWT_SECRET = os.environ.get('JWT_SECRET', 'supersecretjwtkey')
+JWT_ALGORITHM = 'HS256'
+JWT_EXP_DELTA_SECONDS = 3600
+
+def generate_jwt(user_id):
+    payload = {
+        'user_id': user_id,
+        'exp': datetime.utcnow() + timedelta(seconds=JWT_EXP_DELTA_SECONDS)
+    }
+    token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return token
+
+def decode_jwt(token):
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+
+def jwt_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        auth_header = request.headers.get('Authorization', None)
+        if not auth_header:
+            return jsonify({'error': 'Authorization header missing'}), 401
+        parts = auth_header.split()
+        if parts[0].lower() != 'bearer' or len(parts) != 2:
+            return jsonify({'error': 'Invalid authorization header'}), 401
+        token = parts[1]
+        payload = decode_jwt(token)
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+        # Optionally, set current_user or user_id in request context
+        request.user_id = payload['user_id']
+        return f(*args, **kwargs)
+    return decorated_function
 
 # Inicialização do Flask
 app = Flask(__name__, static_folder='static')
@@ -295,7 +338,11 @@ def login():
                        [username, password], one=True)
         if user:
             login_user(User(user['id'], user['username'], user['is_superuser']))
-            return redirect(url_for('form'))
+            # Gera token JWT
+            token = generate_jwt(user['id'])
+            response = redirect(url_for('form'))
+            response.set_cookie('jwt_token', token)
+            return response
         flash('Usuário ou senha inválidos.')
     return render_template('login.html')
 
@@ -615,11 +662,14 @@ def edit_registro(registro_id):
 import boto3
 from botocore.exceptions import NoCredentialsError, ClientError
 
+from flask import request, jsonify
+import jwt
+
 @app.route('/upload_anexo/<int:registro_id>', methods=['POST'])
-@login_required
+@jwt_required
 def upload_anexo(registro_id):
     # Verifica se o registro existe
-    registro = query_db('SELECT * FROM registros WHERE id = ?', [registro_id], one=True)
+    registro = query_db('SELECT * FROM registros WHERE id = %s', [registro_id], one=True)
     if not registro:
         return jsonify({'error': 'Registro não encontrado.'}), 404
     
@@ -681,72 +731,83 @@ def upload_anexo(registro_id):
     anexos.append(novo_anexo)
     
     # Atualiza o registro no banco de dados
-    if IS_PRODUCTION:
-        # PostgreSQL (JSONB)
-        query_db('UPDATE registros SET anexos = %s WHERE id = %s', [json.dumps(anexos), registro_id])
-    else:
-        # SQLite (TEXT)
-        query_db('UPDATE registros SET anexos = ? WHERE id = ?', [json.dumps(anexos), registro_id])
+    query_db('UPDATE registros SET anexos = %s WHERE id = %s', [json.dumps(anexos), registro_id])
     
     return jsonify({
         'success': True,
         'anexo': novo_anexo
     })
 
+from flask import request, jsonify
+import jwt
+
 @app.route('/download_anexo/<int:registro_id>/<anexo_id>')
-@login_required
+@jwt_required
 def download_anexo(registro_id, anexo_id):
-    if not IS_PRODUCTION:
-        # Ambiente de desenvolvimento: download do arquivo local
-        registro = query_db('SELECT * FROM registros WHERE id = ?', [registro_id], one=True)
-        if not registro:
-            flash('Registro não encontrado.')
-            return redirect(url_for('report'))
+    registro = query_db('SELECT * FROM registros WHERE id = %s', [registro_id], one=True)
+    if not registro:
+        return jsonify({'error': 'Registro não encontrado.'}), 404
+    
+    try:
+        if isinstance(registro['anexos'], str):
+            anexos = json.loads(registro['anexos'])
+        else:
+            anexos = registro['anexos']
+    except (json.JSONDecodeError, TypeError):
+        anexos = []
+    
+    anexo = next((a for a in anexos if a['id'] == anexo_id), None)
+    if not anexo:
+        return jsonify({'error': 'Anexo não encontrado.'}), 404
+    
+    import io
+    import boto3
+    s3_client = boto3.client(
+        's3',
+        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+        region_name=os.environ.get('AWS_DEFAULT_REGION')
+    )
+    bucket_name = os.environ.get('AWS_BUCKET_NAME')
+    
+    file_obj = io.BytesIO()
+    try:
+        s3_client.download_fileobj(bucket_name, anexo['nome_sistema'], file_obj)
+        file_obj.seek(0)
+    except Exception as e:
+        app.logger.error(f"Erro ao baixar arquivo do S3: {str(e)}")
+        return jsonify({'error': 'Erro ao baixar arquivo do servidor.'}), 500
+    
+    return send_file(
+        file_obj,
+        download_name=anexo['nome_original'],
+        as_attachment=True
+    )
+
+from flask import request, jsonify
+import jwt
+
+@app.route('/delete_anexo/<int:registro_id>/<anexo_id>', methods=['DELETE'])
+@jwt_required
+def delete_anexo(registro_id, anexo_id):
+    registro = query_db('SELECT anexos FROM registros WHERE id = %s', [registro_id], one=True)
+    if not registro:
+        return jsonify({'success': False, 'error': 'Registro não encontrado'}), 404
+    
+    try:
+        anexos = json.loads(registro['anexos']) if registro['anexos'] else []
         
-        try:
-            if isinstance(registro['anexos'], str):
-                anexos = json.loads(registro['anexos'])
-            else:
-                anexos = registro['anexos']
-        except (json.JSONDecodeError, TypeError):
-            anexos = []
+        anexo_encontrado = None
+        for anexo in anexos:
+            if anexo.get('id') == anexo_id:
+                anexo_encontrado = anexo
+                break
         
-        anexo = next((a for a in anexos if a['id'] == anexo_id), None)
-        if not anexo:
-            flash('Anexo não encontrado.')
-            return redirect(url_for('edit_registro', registro_id=registro_id))
+        if not anexo_encontrado:
+            return jsonify({'success': False, 'error': 'Anexo não encontrado'}), 404
         
-        filepath = os.path.join(app.root_path, 'uploads', anexo['nome_sistema'])
-        if not os.path.exists(filepath):
-            flash('Arquivo não encontrado no servidor.')
-            return redirect(url_for('edit_registro', registro_id=registro_id))
+        anexos = [a for a in anexos if a.get('id') != anexo_id]
         
-        return send_file(
-            filepath,
-            download_name=anexo['nome_original'],
-            as_attachment=True
-        )
-    else:
-        # Ambiente de produção: download do arquivo do S3
-        registro = query_db('SELECT * FROM registros WHERE id = %s', [registro_id], one=True)
-        if not registro:
-            flash('Registro não encontrado.')
-            return redirect(url_for('report'))
-        
-        try:
-            if isinstance(registro['anexos'], str):
-                anexos = json.loads(registro['anexos'])
-            else:
-                anexos = registro['anexos']
-        except (json.JSONDecodeError, TypeError):
-            anexos = []
-        
-        anexo = next((a for a in anexos if a['id'] == anexo_id), None)
-        if not anexo:
-            flash('Anexo não encontrado.')
-            return redirect(url_for('edit_registro', registro_id=registro_id))
-        
-        import io
         import boto3
         s3_client = boto3.client(
             's3',
@@ -756,105 +817,20 @@ def download_anexo(registro_id, anexo_id):
         )
         bucket_name = os.environ.get('AWS_BUCKET_NAME')
         
-        file_obj = io.BytesIO()
         try:
-            s3_client.download_fileobj(bucket_name, anexo['nome_sistema'], file_obj)
-            file_obj.seek(0)
+            s3_client.delete_object(Bucket=bucket_name, Key=anexo_encontrado.get('nome_sistema', ''))
         except Exception as e:
-            app.logger.error(f"Erro ao baixar arquivo do S3: {str(e)}")
-            flash('Erro ao baixar arquivo do servidor.')
-            return redirect(url_for('edit_registro', registro_id=registro_id))
+            app.logger.error(f"Erro ao excluir arquivo do S3: {str(e)}")
         
-        return send_file(
-            file_obj,
-            download_name=anexo['nome_original'],
-            as_attachment=True
-        )
-
-@app.route('/delete_anexo/<int:registro_id>/<anexo_id>', methods=['DELETE'])
-@login_required
-def delete_anexo(registro_id, anexo_id):
-    if not IS_PRODUCTION:
-        # Ambiente de desenvolvimento: exclusão do arquivo local
-        registro = query_db('SELECT anexos FROM registros WHERE id = ?', [registro_id], one=True)
-        if not registro:
-            return jsonify({'success': False, 'error': 'Registro não encontrado'}), 404
+        app.logger.debug(f"Tipo de anexos antes do update: {type(anexos)}")
+        app.logger.debug(f"Valor de anexos antes do update: {anexos}")
         
-        try:
-            anexos = json.loads(registro['anexos']) if registro['anexos'] else []
-            
-            anexo_encontrado = None
-            for anexo in anexos:
-                if anexo.get('id') == anexo_id:
-                    anexo_encontrado = anexo
-                    break
-            
-            if not anexo_encontrado:
-                return jsonify({'success': False, 'error': 'Anexo não encontrado'}), 404
-            
-            anexos = [a for a in anexos if a.get('id') != anexo_id]
-            
-            filepath = os.path.join(app.config.get('UPLOAD_FOLDER', ''), anexo_encontrado.get('nome_sistema', ''))
-            try:
-                if os.path.exists(filepath):
-                    os.remove(filepath)
-                else:
-                    app.logger.warning(f"Arquivo para exclusão não encontrado: {filepath}")
-            except Exception as e:
-                app.logger.error(f"Erro ao excluir arquivo físico: {str(e)}")
-            
-            app.logger.debug(f"Tipo de anexos antes do update: {type(anexos)}")
-            app.logger.debug(f"Valor de anexos antes do update: {anexos}")
-            
-            query_db('UPDATE registros SET anexos = ? , data_ultima_edicao = CURRENT_TIMESTAMP, ultimo_editor = ? WHERE id = ?', 
-                     [json.dumps(anexos), current_user.username, registro_id])
-        
-            return jsonify({'success': True})
-        except Exception as e:
-            return jsonify({'success': False, 'error': str(e)}), 500
-    else:
-        # Ambiente de produção: exclusão do arquivo no S3
-        registro = query_db('SELECT anexos FROM registros WHERE id = %s', [registro_id], one=True)
-        if not registro:
-            return jsonify({'success': False, 'error': 'Registro não encontrado'}), 404
-        
-        try:
-            anexos = json.loads(registro['anexos']) if registro['anexos'] else []
-            
-            anexo_encontrado = None
-            for anexo in anexos:
-                if anexo.get('id') == anexo_id:
-                    anexo_encontrado = anexo
-                    break
-            
-            if not anexo_encontrado:
-                return jsonify({'success': False, 'error': 'Anexo não encontrado'}), 404
-            
-            anexos = [a for a in anexos if a.get('id') != anexo_id]
-            
-            import boto3
-            s3_client = boto3.client(
-                's3',
-                aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-                aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
-                region_name=os.environ.get('AWS_DEFAULT_REGION')
-            )
-            bucket_name = os.environ.get('AWS_BUCKET_NAME')
-            
-            try:
-                s3_client.delete_object(Bucket=bucket_name, Key=anexo_encontrado.get('nome_sistema', ''))
-            except Exception as e:
-                app.logger.error(f"Erro ao excluir arquivo do S3: {str(e)}")
-            
-            app.logger.debug(f"Tipo de anexos antes do update: {type(anexos)}")
-            app.logger.debug(f"Valor de anexos antes do update: {anexos}")
-            
-            query_db('UPDATE registros SET anexos = %s, data_ultima_edicao = CURRENT_TIMESTAMP, ultimo_editor = %s WHERE id = %s', 
-                     [Json(anexos), current_user.username, registro_id])
-        
-            return jsonify({'success': True})
-        except Exception as e:
-            return jsonify({'success': False, 'error': str(e)}), 500
+        query_db('UPDATE registros SET anexos = %s, data_ultima_edicao = CURRENT_TIMESTAMP, ultimo_editor = %s WHERE id = %s', 
+                 [json.dumps(anexos), current_user.username, registro_id])
+    
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # Rota para importação de CSV
 @app.route('/import_csv', methods=['GET', 'POST'])

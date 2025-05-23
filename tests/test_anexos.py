@@ -29,6 +29,8 @@ def client():
                 sess['_user_id'] = str(user['id'])
         yield client
 
+from app import generate_jwt
+
 def test_upload_and_download_and_delete_anexo(monkeypatch, client):
     # Mock boto3 S3 client upload_fileobj and delete_object to simulate S3 behavior
     class MockS3Client:
@@ -43,17 +45,20 @@ def test_upload_and_download_and_delete_anexo(monkeypatch, client):
     monkeypatch.setattr('boto3.client', lambda *args, **kwargs: MockS3Client())
 
     # Cria um registro temporário para testes
-    query_db('INSERT INTO registros (data, demanda, assunto, status, local, direcionamentos, ultimo_editor, data_ultima_edicao) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)', 
+    query_db('INSERT INTO registros (data, demanda, assunto, status, local, direcionamentos, ultimo_editor, data_ultima_edicao) VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)', 
              ['2024-01-01', 'Demanda Teste', 'Assunto Teste', 'Pendente', 'Local Teste', 'Direcionamentos Teste', 'admin'])
-    registro = query_db('SELECT id FROM registros WHERE demanda = ? AND assunto = ?', ['Demanda Teste', 'Assunto Teste'], one=True)
+    registro = query_db('SELECT id FROM registros WHERE demanda = %s AND assunto = %s', ['Demanda Teste', 'Assunto Teste'], one=True)
     registro_id = registro['id'] if registro else 1
+
+    # Gera token JWT válido para o usuário admin
+    token = generate_jwt(registro_id)
 
     # Upload do anexo
     data = {
         'file': (io.BytesIO(b"file content"), 'test.txt')
     }
     headers = {
-        'Authorization': 'Bearer test-token'
+        'Authorization': f'Bearer {token}'
     }
     response = client.post(f'/upload_anexo/{registro_id}', data=data, content_type='multipart/form-data', headers=headers)
     json_data = json.loads(response.data)
@@ -74,4 +79,4 @@ def test_upload_and_download_and_delete_anexo(monkeypatch, client):
     assert json_data['success'] is True
 
     # Remove o registro após o teste
-    query_db('DELETE FROM registros WHERE id = ?', [registro_id])
+    query_db('DELETE FROM registros WHERE id = %s', [registro_id])
