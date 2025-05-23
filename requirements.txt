@@ -10,3 +10,4 @@ Werkzeug
 numpy
 gunicorn
 boto3
+PyJWT
