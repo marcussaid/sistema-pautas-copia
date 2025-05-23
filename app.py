@@ -41,16 +41,19 @@ def jwt_required(f):
         if auth_header:
             parts = auth_header.split()
             if parts[0].lower() != 'bearer' or len(parts) != 2:
+                app.logger.error(f"Invalid authorization header: {auth_header}")
                 return jsonify({'error': 'Invalid authorization header'}), 401
             token = parts[1]
         else:
             # Tenta obter token do cookie 'jwt_token'
             token = request.cookies.get('jwt_token')
             if not token:
+                app.logger.error("Authorization token missing in cookie")
                 return jsonify({'error': 'Authorization token missing'}), 401
 
         payload = decode_jwt(token)
         if not payload:
+            app.logger.error("Invalid or expired token")
             return jsonify({'error': 'Invalid or expired token'}), 401
         # Optionally, set current_user or user_id in request context
         request.user_id = payload['user_id']

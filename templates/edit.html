@@ -185,6 +185,7 @@
         }
 
         function downloadAnexo(anexoId) {
+            // Usar fetch para garantir envio de cookies e tratamento correto do arquivo
             fetch(`/download_anexo/{{ registro.id }}/${anexoId}`, {
                 method: 'GET',
                 credentials: 'include'
