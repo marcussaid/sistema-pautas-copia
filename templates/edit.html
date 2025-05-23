@@ -136,7 +136,8 @@
 
             fetch('/upload_anexo/{{ registro.id }}', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                credentials: 'include'
             })
             .then(response => response.json())
             .then(data => {
@@ -184,14 +185,38 @@
         }
 
         function downloadAnexo(anexoId) {
-            window.location.href = `/download_anexo/{{ registro.id }}/${anexoId}`;
+            fetch(`/download_anexo/{{ registro.id }}/${anexoId}`, {
+                method: 'GET',
+                credentials: 'include'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erro ao baixar anexo');
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = '';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Erro ao baixar anexo');
+            });
         }
 
         function deleteAnexo(anexoId) {
             if (!confirm('Tem certeza que deseja excluir este anexo?')) return;
 
             fetch(`/delete_anexo/{{ registro.id }}/${anexoId}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                credentials: 'include'
             })
             .then(response => response.json())
             .then(data => {
