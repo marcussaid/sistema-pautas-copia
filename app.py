@@ -338,6 +338,8 @@ def index():
         return redirect(url_for('form'))
     return redirect(url_for('login'))
 
+from flask import jsonify
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -348,14 +350,14 @@ def login():
         if user:
             login_user(User(user['id'], user['username'], user['is_superuser']))
             # Gera token JWT
-        token = generate_jwt(user['id'])
-        response = redirect(url_for('form'))
-        if IS_PRODUCTION:
-            response.set_cookie('jwt_token', token, secure=True, httponly=True, samesite='None')
-        else:
-            response.set_cookie('jwt_token', token)
-        return response
-        flash('Usuário ou senha inválidos.')
+            token = generate_jwt(user['id'])
+            response = jsonify({'success': True, 'token': token})
+            if IS_PRODUCTION:
+                response.set_cookie('jwt_token', token, secure=True, httponly=True, samesite='None')
+            else:
+                response.set_cookie('jwt_token', token)
+            return response
+        return jsonify({'success': False, 'message': 'Usuário ou senha inválidos.'}), 401
     return render_template('login.html')
 
 @app.route('/logout')

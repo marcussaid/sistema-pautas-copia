@@ -134,10 +134,14 @@
             const formData = new FormData();
             formData.append('file', file);
 
+            const token = localStorage.getItem('jwt_token');
+
             fetch('/upload_anexo/{{ registro.id }}', {
                 method: 'POST',
-                body: formData,
-                credentials: 'include'
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
             })
             .then(response => response.json())
             .then(data => {
@@ -185,10 +189,12 @@
         }
 
         function downloadAnexo(anexoId) {
-            // Usar fetch para garantir envio de cookies e tratamento correto do arquivo
+            const token = localStorage.getItem('jwt_token');
             fetch(`/download_anexo/{{ registro.id }}/${anexoId}`, {
                 method: 'GET',
-                credentials: 'include'
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
             })
             .then(response => {
                 if (!response.ok) {
@@ -215,9 +221,13 @@
         function deleteAnexo(anexoId) {
             if (!confirm('Tem certeza que deseja excluir este anexo?')) return;
 
+            const token = localStorage.getItem('jwt_token');
+
             fetch(`/delete_anexo/{{ registro.id }}/${anexoId}`, {
                 method: 'DELETE',
-                credentials: 'include'
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
             })
             .then(response => response.json())
             .then(data => {
