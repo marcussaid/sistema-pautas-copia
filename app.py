@@ -37,12 +37,18 @@ def jwt_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         auth_header = request.headers.get('Authorization', None)
-        if not auth_header:
-            return jsonify({'error': 'Authorization header missing'}), 401
-        parts = auth_header.split()
-        if parts[0].lower() != 'bearer' or len(parts) != 2:
-            return jsonify({'error': 'Invalid authorization header'}), 401
-        token = parts[1]
+        token = None
+        if auth_header:
+            parts = auth_header.split()
+            if parts[0].lower() != 'bearer' or len(parts) != 2:
+                return jsonify({'error': 'Invalid authorization header'}), 401
+            token = parts[1]
+        else:
+            # Tenta obter token do cookie 'jwt_token'
+            token = request.cookies.get('jwt_token')
+            if not token:
+                return jsonify({'error': 'Authorization token missing'}), 401
+
         payload = decode_jwt(token)
         if not payload:
             return jsonify({'error': 'Invalid or expired token'}), 401
