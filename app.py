@@ -345,10 +345,13 @@ def login():
         if user:
             login_user(User(user['id'], user['username'], user['is_superuser']))
             # Gera token JWT
-            token = generate_jwt(user['id'])
-            response = redirect(url_for('form'))
+        token = generate_jwt(user['id'])
+        response = redirect(url_for('form'))
+        if IS_PRODUCTION:
+            response.set_cookie('jwt_token', token, secure=True, httponly=True, samesite='None')
+        else:
             response.set_cookie('jwt_token', token)
-            return response
+        return response
         flash('Usuário ou senha inválidos.')
     return render_template('login.html')
 
